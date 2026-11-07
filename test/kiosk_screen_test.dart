@@ -5,20 +5,23 @@ import 'package:kiosco/data/models/kiosk_context.dart';
 import 'package:kiosco/state/kiosk_controller.dart';
 import 'package:kiosco/ui/kiosk_screen.dart';
 import 'package:kiosco/ui/kiosk_theme.dart';
+import 'package:kiosco/ui/widgets/camera_card.dart';
 import 'package:kiosco/ui/widgets/keypad_card.dart';
 
 import 'support/camera_fakes.dart';
 import 'support/fakes.dart';
 import 'support/harness.dart';
 
-/// Mounts the kiosk on a landscape tablet surface (1280×800).
+/// Mounts the kiosk on a landscape tablet surface (1280×800) unless [size] is
+/// given (e.g. a 360×640 phone to check the keypad fits).
 Future<KioskController> pumpKiosk(
   WidgetTester tester, {
   FakeKioskApi? api,
   FakeFaceCamera? camera,
   FakeLocationService? location,
+  Size size = const Size(1280, 800),
 }) async {
-  tester.view.physicalSize = const Size(1280, 800);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
 
   final controller = makeController(
@@ -48,12 +51,14 @@ Future<void> withKiosk(
   FakeKioskApi? api,
   FakeFaceCamera? camera,
   FakeLocationService? location,
+  Size size = const Size(1280, 800),
 }) async {
   final controller = await pumpKiosk(
     tester,
     api: api,
     camera: camera,
     location: location,
+    size: size,
   );
   try {
     await body(controller);
@@ -77,6 +82,14 @@ Future<void> tapDigits(WidgetTester tester, List<String> digits) async {
     );
     await tester.pump();
   }
+}
+
+/// Taps [label] after scrolling it into view: the identification selector is
+/// scrollable, so on short screens the last option may start below the fold.
+Future<void> tapTextScrolling(WidgetTester tester, String label) async {
+  await tester.ensureVisible(find.text(label));
+  await tester.pump();
+  await tapText(tester, label);
 }
 
 void main() {
@@ -178,6 +191,27 @@ void main() {
       }, camera: camera);
     });
 
+    testWidgets('the preview fills the card on a phone held in landscape', (
+      tester,
+    ) async {
+      await withKiosk(tester, (controller) async {
+        await tapText(tester, 'Entrada');
+        await tapText(tester, 'Con mi rostro');
+
+        expect(tester.takeException(), isNull);
+
+        final previewRect = tester.getRect(
+          find.byKey(const ValueKey('fake-camera-preview')),
+        );
+        final cardRect = tester.getRect(find.byType(CameraCard));
+
+        // The frame covers the card and keeps (almost) all of its height: the
+        // overlaid controls no longer squeeze it into a thin strip.
+        expect(previewRect.width, closeTo(cardRect.width, 40));
+        expect(previewRect.height, greaterThanOrEqualTo(cardRect.height * 0.9));
+      }, size: const Size(1024, 600));
+    });
+
     testWidgets('a camera that cannot be opened shows the admin message', (
       tester,
     ) async {
@@ -266,17 +300,108 @@ void main() {
       }, api: api);
     });
 
-    testWidgets('warns when no identification method is enabled', (
+    testWidgets('offers the face even when the biometric provider is missing', (
       tester,
     ) async {
-      final api = FakeKioskApi(
-        context: sampleContext(face: false, employeeNumber: false),
-      );
+      final api = FakeKioskApi(context: sampleContext(face: false));
 
       await withKiosk(tester, (controller) async {
-        expect(find.text('Sin método de registro'), findsOneWidget);
-        expect(find.text(KioskController.noMethodMessage), findsOneWidget);
+        expect(controller.faceConfigured, isFalse);
+
+        await tapText(tester, 'Entrada');
+
+        expect(find.text('Con mi rostro'), findsOneWidget);
+        expect(
+          find.text(KioskController.faceNotConfiguredMessage),
+          findsOneWidget,
+        );
       }, api: api);
+    });
+  });
+
+  group('location banner', () {
+    testWidgets('turns the OS location switch on from the banner', (
+      tester,
+    ) async {
+      final location = FakeLocationService(serviceEnabled: false);
+
+      await withKiosk(tester, (controller) async {
+        expect(
+          find.text(KioskController.locationDisabledMessage),
+          findsOneWidget,
+        );
+        expect(find.text('Activar'), findsOneWidget);
+
+        await tapText(tester, 'Activar');
+
+        expect(location.locationSettingsOpened, 1);
+
+        // The operator turned the switch on: the banner goes away on refresh.
+        location.serviceEnabled = true;
+        await controller.refreshLocationState();
+        await tester.pump();
+
+        expect(
+          find.text(KioskController.locationDisabledMessage),
+          findsNothing,
+        );
+      }, location: location);
+    });
+
+    testWidgets('asks for the permission when the switch is already on', (
+      tester,
+    ) async {
+      final location = FakeLocationService(permission: false);
+
+      await withKiosk(tester, (controller) async {
+        await tapText(tester, 'Activar');
+
+        expect(location.permissionRequests, 1);
+        expect(location.locationSettingsOpened, 0);
+
+        location.permission = true;
+        await controller.refreshLocationState();
+        await tester.pump();
+
+        expect(
+          find.text(KioskController.locationDisabledMessage),
+          findsNothing,
+        );
+      }, location: location);
+    });
+  });
+
+  group('small screens', () {
+    testWidgets('the keypad takes over the screen on a phone', (tester) async {
+      await withKiosk(tester, (controller) async {
+        await tapText(tester, 'Entrada');
+        await tapTextScrolling(tester, 'Con mi número de empleado');
+
+        expect(find.byType(KeypadCard), findsOneWidget);
+        // The punch-type grid is hidden, so the keypad owns the viewport.
+        expect(find.text('Inicio de comida'), findsNothing);
+        expect(find.text('Tipo: Entrada'), findsOneWidget);
+
+        for (final key in ['1', '5', '9', '0']) {
+          expect(
+            find.descendant(
+              of: find.byType(KeypadCard),
+              matching: find.text(key),
+            ),
+            findsOneWidget,
+          );
+        }
+
+        // Every control is on screen and tappable without scrolling.
+        await tester.tap(find.text('Registrar'));
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+        expect(
+          find.text(KioskController.emptyEmployeeNumberMessage),
+          findsOneWidget,
+        );
+      }, size: const Size(360, 640));
     });
   });
 }

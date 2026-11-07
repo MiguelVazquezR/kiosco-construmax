@@ -24,13 +24,29 @@ class KioskScreen extends StatefulWidget {
   State<KioskScreen> createState() => _KioskScreenState();
 }
 
-class _KioskScreenState extends State<KioskScreen> {
+class _KioskScreenState extends State<KioskScreen> with WidgetsBindingObserver {
   KioskController get _controller => widget.controller;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _controller.start();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // The operator may have turned the location switch on (or granted the
+    // permission) in the OS settings, so the banner is refreshed on resume.
+    if (state == AppLifecycleState.resumed) {
+      _controller.refreshLocationState();
+    }
   }
 
   @override
@@ -63,9 +79,14 @@ class _KioskScreenState extends State<KioskScreen> {
                         ),
                       if (status == KioskStatus.ready &&
                           _controller.locationPermissionMissing)
-                        const WarningBanner(
-                          message:
-                              'La ubicación está desactivada. Actívala para registrar tu fichaje.',
+                        WarningBanner(
+                          message: KioskController.locationDisabledMessage,
+                          actionLabel: _controller.isEnablingLocation
+                              ? KioskController.locationEnablingAction
+                              : KioskController.locationEnableAction,
+                          onAction: _controller.isEnablingLocation
+                              ? null
+                              : _controller.enableLocation,
                         ),
                       Expanded(child: _buildBody(status)),
                     ],
@@ -121,9 +142,34 @@ class _KioskScreenState extends State<KioskScreen> {
   Widget _buildReady() {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final identification = _buildIdentificationSection();
+
+        // Step 2 in progress (camera preview or keypad): it takes the whole
+        // screen. The punch-type grid is hidden so the keypad fits even on a
+        // small phone, where it used to be pushed out of view.
+        if (_controller.method != null) {
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  // A landscape tablet has plenty of width, so the preview can
+                  // be wider than the phone-friendly 640.
+                  maxWidth: constraints.maxWidth >= 820 ? 960 : 640,
+                  maxHeight: (constraints.maxHeight - 24).clamp(
+                    0.0,
+                    double.infinity,
+                  ),
+                ),
+                child: identification,
+              ),
+            ),
+          );
+        }
+
         final isWide = constraints.maxWidth >= 820;
         final types = _buildTypeSection();
-        final identification = _buildIdentificationSection();
 
         if (isWide) {
           return Padding(
@@ -199,17 +245,18 @@ class _KioskScreenState extends State<KioskScreen> {
     final statusText = _controller.isLocating ? 'Obteniendo ubicación…' : null;
 
     Widget panel;
-    if (!_controller.faceEnabled && !_controller.employeeNumberEnabled) {
-      panel = const WaitingPanel(
-        hasMethods: false,
-        message: KioskController.noMethodMessage,
-      );
-    } else if (_controller.method == IdentificationMethod.face) {
+    if (_controller.method == IdentificationMethod.face) {
       panel = CameraCard(
         preview: _controller.camera?.buildPreview() ?? const SizedBox.shrink(),
         ready: _controller.cameraReady,
+        aspectRatio: _controller.camera?.previewAspectRatio,
         loading: _controller.isSubmitting,
         hint: KioskController.faceHint,
+        // The face method is always offered (like the web kiosk); when the
+        // biometric provider is not ready the camera warns instead of hiding.
+        notice: _controller.faceConfigured
+            ? null
+            : KioskController.faceNotConfiguredMessage,
         statusText: statusText,
         onCapture: _controller.submitFace,
         // Closing the preview returns the kiosk to "En espera".
@@ -230,7 +277,7 @@ class _KioskScreenState extends State<KioskScreen> {
       );
     } else if (_controller.selectedType != null) {
       panel = MethodSelector(
-        faceEnabled: _controller.faceEnabled,
+        faceConfigured: _controller.faceConfigured,
         employeeNumberEnabled: _controller.employeeNumberEnabled,
         selectedTypeLabel: _controller.selectedType?.label,
         onSelect: _controller.selectMethod,
@@ -239,12 +286,41 @@ class _KioskScreenState extends State<KioskScreen> {
       panel = const WaitingPanel();
     }
 
+    final selectedType = _controller.selectedType;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (error != null) ...[
           ErrorBanner(message: error),
           const SizedBox(height: 12),
+        ],
+        // Step 2 hides the punch-type grid, so the chosen type is reminded
+        // here; "Cancelar" takes the collaborator back to the waiting panel.
+        if (_controller.method != null && selectedType != null) ...[
+          Row(
+            children: [
+              const Icon(
+                Icons.check_circle_rounded,
+                size: 16,
+                color: KioskColors.brand,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Tipo: ${selectedType.label}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: KioskColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
         ],
         Expanded(child: panel),
       ],

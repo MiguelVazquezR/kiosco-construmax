@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'photo_encoder.dart';
@@ -13,6 +14,11 @@ abstract class FaceCamera {
   Future<void> initialize();
 
   bool get isReady;
+
+  /// Width / height ratio of [buildPreview] as it must be drawn on screen, or
+  /// `null` while the preview is not ready. The card needs it so the frame is
+  /// never stretched to fill its box.
+  double? get previewAspectRatio;
 
   Widget buildPreview();
 
@@ -70,6 +76,24 @@ class DeviceFaceCamera implements FaceCamera {
     } catch (_) {
       _ready = false;
     }
+  }
+
+  @override
+  double? get previewAspectRatio {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return null;
+
+    final value = controller.value;
+    final orientation =
+        value.previewPauseOrientation ??
+        value.lockedCaptureOrientation ??
+        value.deviceOrientation;
+    // Same rule as `CameraPreview`: the texture is upright, so the sensor
+    // ratio must be inverted while the device is held in portrait.
+    final isLandscape =
+        orientation == DeviceOrientation.landscapeLeft ||
+        orientation == DeviceOrientation.landscapeRight;
+    return isLandscape ? value.aspectRatio : 1 / value.aspectRatio;
   }
 
   @override

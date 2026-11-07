@@ -57,6 +57,53 @@ y estado de red. La actividad es `singleTask` y el botón atrás está bloqueado
 (`PopScope`). `MainActivity.kt` expone el canal `com.example.kiosco/kiosk`
 (`startLockTask`, `stopLockTask`, `bringToFront`).
 
+## Probar en tablet física contra Laravel Herd (túnel USB)
+
+El sitio de Herd (`https://construmax.test`) solo escucha en `127.0.0.1:443` y
+responde 404 si el `Host` no coincide, así que `adb reverse` por sí solo no
+alcanza. El flujo usa un proxy mínimo (`tool/dev_proxy.dart`) que convierte HTTP
+local en HTTPS con el `Host`/SNI correctos.
+
+1. Conecta la tablet por USB y acepta la depuración.
+
+2. Abre el túnel (proxy + `adb reverse`). Deja la ventana abierta mientras
+   pruebes:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File tool\dev_tunnel.ps1
+   ```
+
+   Termina con `GET /api/v1/kiosk/ping -> HTTP/1.1 200 OK` y deja el log en
+   `%TEMP%\kiosco-proxy.log`.
+
+3. Compila e instala apuntando al túnel (release arm64 por defecto, porque el
+   APK debug no cabe en tablets con poco espacio):
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File tool\dev_install.ps1
+   # solo instalar el APK ya compilado:
+   powershell -ExecutionPolicy Bypass -File tool\dev_install.ps1 -SkipBuild
+   # APK debug (perfilado / hot reload):
+   powershell -ExecutionPolicy Bypass -File tool\dev_install.ps1 -DebugBuild
+   ```
+
+   La URL compilada es `http://localhost:8001/api/v1/kiosk`; el
+   `network_security_config.xml` permite texto claro solo para
+   `localhost`/`127.0.0.1`/`10.0.2.2`.
+
+4. Requisitos en el backend para que el kiosco quede operativo:
+
+   - Migraciones al día (`php artisan migrate`): sin
+     `attendance_devices.fingerprint_hash` el `POST /bootstrap` devuelve 500.
+   - `payroll_settings.kiosk_employee_number_enabled` en `true`: si no, la app
+     muestra "Sin método de registro". El fichaje por rostro solo aparece cuando
+     el proveedor biométrico está configurado.
+
+5. En HyperOS/MIUI hace falta activar **Opciones de desarrollador → Instalar vía
+   USB** para que `adb install` no falle con `INSTALL_FAILED_USER_RESTRICTED`, y
+   los permisos de cámara/ubicación se conceden a mano en la tablet (`pm grant`
+   está bloqueado por el sistema).
+
 ## Desarrollo
 
 ```bash

@@ -46,40 +46,67 @@ class ErrorBanner extends StatelessWidget {
 }
 
 /// Persistent warning banner shown while the kiosk needs the operator's
-/// attention (location disabled, wrong device clock).
+/// attention (location disabled, wrong device clock). It can carry a short
+/// action (`Activar`) so the operator fixes the problem without leaving the
+/// kiosk.
 class WarningBanner extends StatelessWidget {
   const WarningBanner({
     super.key,
     required this.message,
     this.icon = Icons.location_off_rounded,
+    this.actionLabel,
+    this.onAction,
   });
 
   final String message;
   final IconData icon;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  static const Color _foreground = Color(0xFF8A6100);
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: const BoxDecoration(
         color: KioskColors.warningSoft,
         border: Border(bottom: BorderSide(color: Color(0xFFF3D9A4))),
       ),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFF8A6100), size: 20),
+          Icon(icon, color: _foreground, size: 20),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF8A6100),
-                fontWeight: FontWeight.w600,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: _foreground,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
+          if (actionLabel != null) ...[
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: onAction,
+              style: TextButton.styleFrom(
+                foregroundColor: _foreground,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              child: Text(actionLabel!),
+            ),
+          ],
         ],
       ),
     );

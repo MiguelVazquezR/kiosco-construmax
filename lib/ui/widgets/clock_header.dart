@@ -74,84 +74,105 @@ class _ClockHeaderState extends State<ClockHeader> {
     final dateLabel =
         '${_weekdays[_now.weekday - 1]} ${_now.day} de ${_months[_now.month - 1]}';
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: const BoxDecoration(
-        color: KioskColors.surface,
-        border: Border(bottom: BorderSide(color: KioskColors.border)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 12,
-            height: 44,
-            decoration: BoxDecoration(
-              color: KioskColors.brand,
-              borderRadius: BorderRadius.circular(6),
-            ),
+    // On narrow screens (phones held in portrait) the date and the big clock
+    // would squeeze the device name until it wraps one character per line, so
+    // the header shrinks to the essential: name + time.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 520;
+        final subtitle = widget.deviceLocation == null
+            ? widget.appName
+            : '${widget.appName} · ${widget.deviceLocation}';
+
+        return Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 16 : 24,
+            vertical: compact ? 10 : 16,
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  widget.deviceName,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: KioskColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  widget.deviceLocation == null
-                      ? widget.appName
-                      : '${widget.appName} · ${widget.deviceLocation}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: KioskColors.textMuted,
-                  ),
-                ),
-              ],
-            ),
+          decoration: const BoxDecoration(
+            color: KioskColors.surface,
+            border: Border(bottom: BorderSide(color: KioskColors.border)),
           ),
-          if (widget.clockDriftWarning)
-            const Padding(
-              padding: EdgeInsets.only(right: 16),
-              child: Icon(
-                Icons.warning_amber_rounded,
-                color: KioskColors.brand,
-                size: 26,
-              ),
-            ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
             children: [
-              Text(
-                time,
-                style: const TextStyle(
-                  fontSize: 34,
-                  fontWeight: FontWeight.w700,
-                  height: 1,
-                  color: KioskColors.textPrimary,
-                  fontFeatures: [FontFeature.tabularFigures()],
+              Container(
+                width: 12,
+                height: compact ? 32 : 44,
+                decoration: BoxDecoration(
+                  color: KioskColors.brand,
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                dateLabel,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: KioskColors.textMuted,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.deviceName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: compact ? 17 : 20,
+                        fontWeight: FontWeight.w700,
+                        color: KioskColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: KioskColors.textMuted,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              if (widget.clockDriftWarning)
+                const Padding(
+                  padding: EdgeInsets.only(right: 16),
+                  child: Icon(
+                    Icons.warning_amber_rounded,
+                    color: KioskColors.brand,
+                    size: 26,
+                  ),
+                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    time,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: compact ? 26 : 34,
+                      fontWeight: FontWeight.w700,
+                      height: 1,
+                      color: KioskColors.textPrimary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  if (!compact) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      dateLabel,
+                      maxLines: 1,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: KioskColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

@@ -4,16 +4,9 @@ import '../kiosk_theme.dart';
 
 /// The default right-hand panel: nothing selected yet ("En espera").
 class WaitingPanel extends StatelessWidget {
-  const WaitingPanel({
-    super.key,
-    this.message,
-    this.hasMethods = true,
-  });
+  const WaitingPanel({super.key, this.message});
 
   final String? message;
-
-  /// `false` when the ERP disabled every identification method.
-  final bool hasMethods;
 
   @override
   Widget build(BuildContext context) {
@@ -27,16 +20,16 @@ class WaitingPanel extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            hasMethods ? Icons.touch_app_rounded : Icons.report_problem_rounded,
+          const Icon(
+            Icons.touch_app_rounded,
             size: 56,
-            color: hasMethods ? KioskColors.brand : KioskColors.danger,
+            color: KioskColors.brand,
           ),
           const SizedBox(height: 16),
-          Text(
-            hasMethods ? 'En espera' : 'Sin método de registro',
+          const Text(
+            'En espera',
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w700,
               color: KioskColors.textPrimary,

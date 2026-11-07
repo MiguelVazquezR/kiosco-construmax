@@ -153,17 +153,41 @@ class FakeLocationService implements LocationService {
   FakeLocationService({
     this.fix = const GpsFix(latitude: -12.0464, longitude: -77.0428, accuracy: 6),
     this.permission = true,
+    this.serviceEnabled = true,
   });
 
   GpsFix? fix;
   bool permission;
+
+  /// Whether the OS location switch (GPS) is on.
+  bool serviceEnabled;
+
   int fixCalls = 0;
+  int permissionRequests = 0;
+  int locationSettingsOpened = 0;
+  int appSettingsOpened = 0;
 
   @override
   Future<bool> hasPermission() async => permission;
 
   @override
-  Future<bool> requestPermission() async => permission;
+  Future<bool> requestPermission() async {
+    permissionRequests++;
+    return permission;
+  }
+
+  @override
+  Future<bool> isServiceEnabled() async => serviceEnabled;
+
+  @override
+  Future<void> openLocationSettings() async {
+    locationSettingsOpened++;
+  }
+
+  @override
+  Future<void> openAppSettings() async {
+    appSettingsOpened++;
+  }
 
   @override
   Future<GpsFix?> currentFix({

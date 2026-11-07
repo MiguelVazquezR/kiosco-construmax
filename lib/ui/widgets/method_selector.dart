@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
 
 import '../../data/models/kiosk_context.dart';
+import '../../state/kiosk_controller.dart';
 import '../kiosk_theme.dart';
 
 /// Step 2: "Con mi rostro" / "Con mi número de empleado".
+///
+/// The face option is always offered (same as the web kiosk); when the
+/// biometric provider is not configured the subtitle says so instead of
+/// hiding the method.
 class MethodSelector extends StatelessWidget {
   const MethodSelector({
     super.key,
     required this.onSelect,
-    this.faceEnabled = true,
+    this.faceConfigured = true,
     this.employeeNumberEnabled = true,
     this.selectedTypeLabel,
   });
 
   final ValueChanged<IdentificationMethod> onSelect;
-  final bool faceEnabled;
+  final bool faceConfigured;
   final bool employeeNumberEnabled;
   final String? selectedTypeLabel;
 
@@ -27,45 +32,50 @@ class MethodSelector extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: KioskColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (selectedTypeLabel != null) ...[
-            Text(
-              'Tipo: $selectedTypeLabel',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: KioskColors.brand,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (selectedTypeLabel != null) ...[
+              Text(
+                'Tipo: $selectedTypeLabel',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: KioskColors.brand,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            const Text(
+              '¿Cómo quieres identificarte?',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: KioskColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 12),
-          ],
-          const Text(
-            '¿Cómo quieres identificarte?',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: KioskColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (faceEnabled)
+            const SizedBox(height: 16),
             _MethodButton(
               icon: Icons.face_retouching_natural_rounded,
               label: 'Con mi rostro',
-              subtitle: 'La cámara te reconoce automáticamente.',
+              subtitle: faceConfigured
+                  ? 'La cámara te reconoce automáticamente.'
+                  : KioskController.faceNotConfiguredMessage,
               onTap: () => onSelect(IdentificationMethod.face),
             ),
-          if (faceEnabled && employeeNumberEnabled) const SizedBox(height: 12),
-          if (employeeNumberEnabled)
-            _MethodButton(
-              icon: Icons.dialpad_rounded,
-              label: 'Con mi número de empleado',
-              subtitle: 'Escribe tu número en el teclado.',
-              onTap: () => onSelect(IdentificationMethod.employeeNumber),
-            ),
-        ],
+            if (employeeNumberEnabled) ...[
+              const SizedBox(height: 12),
+              _MethodButton(
+                icon: Icons.dialpad_rounded,
+                label: 'Con mi número de empleado',
+                subtitle: 'Escribe tu número en el teclado.',
+                onTap: () => onSelect(IdentificationMethod.employeeNumber),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

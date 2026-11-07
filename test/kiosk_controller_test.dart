@@ -326,4 +326,103 @@ void main() {
       controller.dispose();
     });
   });
+
+  group('location banner', () {
+    test('flags the banner while the OS switch is off', () async {
+      final location = FakeLocationService(serviceEnabled: false);
+      final controller = makeController(location: location);
+
+      await controller.start();
+
+      expect(controller.locationPermissionMissing, isTrue);
+
+      await controller.enableLocation();
+
+      expect(location.locationSettingsOpened, 1);
+      expect(location.permissionRequests, 0);
+      // The OS screen was opened but the switch is still off.
+      expect(controller.locationPermissionMissing, isTrue);
+      expect(controller.isEnablingLocation, isFalse);
+
+      // The operator turns it on and comes back to the kiosk.
+      location.serviceEnabled = true;
+      await controller.refreshLocationState();
+
+      expect(controller.locationPermissionMissing, isFalse);
+
+      controller.dispose();
+    });
+
+    test('requests the permission when only the permission is missing',
+        () async {
+      final location = FakeLocationService(permission: false);
+      final controller = makeController(location: location);
+
+      await controller.start();
+
+      expect(controller.locationPermissionMissing, isTrue);
+
+      await controller.enableLocation();
+
+      expect(location.locationSettingsOpened, 0);
+      expect(location.permissionRequests, 1);
+      // Still denied, so the app settings page is the last resort.
+      expect(location.appSettingsOpened, 1);
+      expect(controller.locationPermissionMissing, isTrue);
+
+      controller.dispose();
+    });
+
+    test('a permission granted in the OS clears the banner', () async {
+      final location = FakeLocationService(permission: false);
+      final controller = makeController(location: location);
+
+      await controller.start();
+      expect(controller.locationPermissionMissing, isTrue);
+
+      // The operator grants it from the system dialog/settings and the kiosk
+      // re-reads the state when it comes back to the foreground.
+      location.permission = true;
+      await controller.refreshLocationState();
+
+      expect(controller.locationPermissionMissing, isFalse);
+      expect(location.locationSettingsOpened, 0);
+
+      controller.dispose();
+    });
+  });
+
+  group('identification methods', () {
+    test('the face is offered even without the biometric provider', () async {
+      final controller = makeController(
+        api: FakeKioskApi(context: sampleContext(face: false)),
+      );
+
+      await controller.start();
+
+      expect(controller.faceAvailable, isTrue);
+      expect(controller.faceConfigured, isFalse);
+
+      controller.selectType(demoPunchTypes.first);
+      await controller.selectMethod(IdentificationMethod.face);
+
+      expect(controller.method, IdentificationMethod.face);
+      expect(camerasOf(controller).created, hasLength(1));
+      expect(controller.errorMessage, isNull);
+
+      controller.dispose();
+    });
+
+    test('the face is configured when the server says so', () async {
+      final controller = makeController();
+
+      await controller.start();
+
+      expect(controller.faceAvailable, isTrue);
+      expect(controller.faceConfigured, isTrue);
+
+      controller.dispose();
+    });
+  });
+
 }

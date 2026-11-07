@@ -41,8 +41,6 @@ class KioskController extends ChangeNotifier {
       'No se pudo obtener la ubicación del dispositivo. Activa la ubicación e intenta de nuevo.';
   static const String clockDriftMessage =
       'La fecha y hora del dispositivo no son correctas. Pide al administrador que las ajustes.';
-  static const String noMethodMessage =
-      'El kiosco no tiene un método de registro activo. Pide ayuda al administrador.';
   static const String cameraUnavailableMessage =
       'No se pudo abrir la cámara. Pide ayuda al administrador.';
   static const String cameraFailedMessage =
@@ -55,6 +53,12 @@ class KioskController extends ChangeNotifier {
       'El registro es personal e individual. No registres la asistencia de otra persona.';
   static const String faceHint =
       'Colócate de frente a la cámara, con buena iluminación.';
+  static const String faceNotConfiguredMessage =
+      'El reconocimiento facial aún no está configurado en el servidor. Pide ayuda al administrador.';
+  static const String locationDisabledMessage =
+      'La ubicación está desactivada. Actívala para registrar tu fichaje.';
+  static const String locationEnableAction = 'Activar';
+  static const String locationEnablingAction = 'Activando…';
 
   KioskStatus _status = KioskStatus.checking;
   KioskContext? _context;
@@ -68,6 +72,7 @@ class KioskController extends ChangeNotifier {
   bool _cameraReady = false;
   bool _isLocating = false;
   bool _isSubmitting = false;
+  bool _isEnablingLocation = false;
   bool _clockDriftWarning = false;
   bool _locationPermissionMissing = false;
   bool _disposed = false;
@@ -89,6 +94,7 @@ class KioskController extends ChangeNotifier {
   bool get cameraReady => _cameraReady;
   bool get isLocating => _isLocating;
   bool get isSubmitting => _isSubmitting;
+  bool get isEnablingLocation => _isEnablingLocation;
   bool get clockDriftWarning => _clockDriftWarning;
   bool get locationPermissionMissing => _locationPermissionMissing;
 
@@ -101,7 +107,12 @@ class KioskController extends ChangeNotifier {
 
   List<PunchType> get punchTypes => _context?.punchTypes ?? const [];
 
-  bool get faceEnabled => _context?.faceRecognitionEnabled ?? false;
+  /// The face option is always offered, exactly like the web kiosk: the
+  /// `faceRecognitionEnabled` flag only tells whether the biometric provider
+  /// is ready, so the collaborator still sees the method (with a warning)
+  /// instead of being locked to the employee number.
+  bool get faceAvailable => _context != null;
+  bool get faceConfigured => _context?.faceRecognitionEnabled ?? false;
   bool get employeeNumberEnabled =>
       _context?.employeeNumberEnabled ?? false;
 
@@ -122,7 +133,7 @@ class KioskController extends ChangeNotifier {
       final context = await api.bootstrap(_identity);
       _context = context;
       _checkClockDrift(context.serverTime ?? ping.serverTime);
-      _locationPermissionMissing = !await locationService.hasPermission();
+      await _refreshLocationState();
       if (_disposed) return;
 
       _status = KioskStatus.ready;
@@ -143,6 +154,49 @@ class KioskController extends ChangeNotifier {
   }
 
   Future<void> retry() => start();
+
+  /// Re-reads the location state: used on start-up and when the app resumes
+  /// (the operator comes back from the OS settings screen).
+  Future<void> refreshLocationState() async {
+    await _refreshLocationState();
+    _notify();
+  }
+
+  /// Action behind the "Activar" link of the location banner. Turns the OS
+  /// location switch on (opens the system screen) or asks for the permission,
+  /// falling back to the app settings after a permanent denial.
+  Future<void> enableLocation() async {
+    if (_isEnablingLocation || _isSubmitting) return;
+
+    _isEnablingLocation = true;
+    _notify();
+
+    try {
+      if (!await locationService.isServiceEnabled()) {
+        await locationService.openLocationSettings();
+      } else {
+        var granted = await locationService.hasPermission();
+        if (!granted) granted = await locationService.requestPermission();
+        if (!granted) await locationService.openAppSettings();
+      }
+    } catch (_) {
+      // The OS refused to open the settings screen; the banner stays visible.
+    }
+
+    await _refreshLocationState();
+    _isEnablingLocation = false;
+    _notify();
+  }
+
+  Future<void> _refreshLocationState() async {
+    try {
+      final granted = await locationService.hasPermission();
+      final serviceEnabled = await locationService.isServiceEnabled();
+      _locationPermissionMissing = !granted || !serviceEnabled;
+    } catch (_) {
+      _locationPermissionMissing = true;
+    }
+  }
 
   void selectType(PunchType type) {
     if (_isSubmitting) return;

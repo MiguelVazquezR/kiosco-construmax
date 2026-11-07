@@ -23,9 +23,11 @@ class FakeFaceCamera implements FaceCamera {
   }
 
   @override
-  Widget buildPreview() => const SizedBox.expand(
-    key: ValueKey('fake-camera-preview'),
-  );
+  Widget buildPreview() =>
+      const SizedBox.expand(key: ValueKey('fake-camera-preview'));
+
+  @override
+  double? get previewAspectRatio => 3 / 4;
 
   @override
   Future<String?> capture() async {

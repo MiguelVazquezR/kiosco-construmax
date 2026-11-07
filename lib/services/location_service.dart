@@ -9,6 +9,17 @@ abstract class LocationService {
 
   Future<bool> requestPermission();
 
+  /// Whether the OS location switch (GPS) is on. Permission can be granted
+  /// while the switch is off, and then no fix is possible.
+  Future<bool> isServiceEnabled();
+
+  /// Opens the OS screen where the operator turns the location switch on.
+  Future<void> openLocationSettings();
+
+  /// Opens the app permission page, used after a permanent denial (the OS no
+  /// longer shows the permission dialog).
+  Future<void> openAppSettings();
+
   /// Current fix, or `null` when the permission is denied or it takes longer
   /// than [timeout]. Location is mandatory evidence, so a `null` fix blocks
   /// the punch.
@@ -37,6 +48,33 @@ class GeolocatorLocationService implements LocationService {
           permission == LocationPermission.whileInUse;
     } catch (_) {
       return false;
+    }
+  }
+
+  @override
+  Future<bool> isServiceEnabled() async {
+    try {
+      return await Geolocator.isLocationServiceEnabled();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<void> openLocationSettings() async {
+    try {
+      await Geolocator.openLocationSettings();
+    } catch (_) {
+      // The OS may refuse to open its settings screen; the banner stays.
+    }
+  }
+
+  @override
+  Future<void> openAppSettings() async {
+    try {
+      await Geolocator.openAppSettings();
+    } catch (_) {
+      // Same as above: nothing else the kiosk can do.
     }
   }
 
