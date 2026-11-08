@@ -38,26 +38,55 @@ class PunchTypeGrid extends StatelessWidget {
       );
     }
 
-    return GridView.builder(
-      padding: EdgeInsets.zero,
-      itemCount: types.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 2.4,
-      ),
-      itemBuilder: (context, index) {
-        final type = types[index];
-        final selected = type.key == selectedKey;
+    // Fixed 2×3 grid (never scrolls): the six options must always be visible.
+    const spacing = KioskSpacing.sm;
+    final rows = (types.length / 2).ceil();
 
-        return _PunchTypeButton(
-          label: type.label,
-          icon: _icons[type.key] ?? Icons.fingerprint_rounded,
-          selected: selected,
-          onTap: enabled ? () => onSelect(type) : null,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxHeight = constraints.maxHeight;
+        final available = maxHeight.isFinite
+            ? maxHeight
+            : rows * 96.0 + spacing * (rows - 1);
+        final rowHeight = ((available - spacing * (rows - 1)) / rows).clamp(
+          48.0,
+          100.0,
+        );
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var row = 0; row < rows; row++) ...[
+              if (row > 0) const SizedBox(height: spacing),
+              SizedBox(
+                height: rowHeight,
+                child: Row(
+                  children: [
+                    for (var column = 0; column < 2; column++) ...[
+                      if (column > 0) const SizedBox(width: spacing),
+                      Expanded(child: _buildTile(row * 2 + column)),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildTile(int index) {
+    if (index >= types.length) {
+      return const SizedBox.shrink();
+    }
+    final type = types[index];
+    return _PunchTypeButton(
+      label: type.label,
+      icon: _icons[type.key] ?? Icons.fingerprint_rounded,
+      selected: type.key == selectedKey,
+      onTap: enabled ? () => onSelect(type) : null,
     );
   }
 }
@@ -80,51 +109,60 @@ class _PunchTypeButton extends StatelessWidget {
     final borderColor = selected ? KioskColors.brand : KioskColors.border;
     final background = selected ? KioskColors.brandSoft : KioskColors.surface;
 
-    return Material(
-      color: background,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: borderColor,
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  size: 30,
-                  color: selected ? KioskColors.brand : KioskColors.textMuted,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = constraints.maxHeight;
+        final iconSize = height < 60 ? 24.0 : 30.0;
+
+        return Material(
+          color: background,
+          borderRadius: KioskRadius.optionRadius,
+          child: InkWell(
+            borderRadius: KioskRadius.optionRadius,
+            onTap: onTap,
+            child: Ink(
+              decoration: BoxDecoration(
+                borderRadius: KioskRadius.optionRadius,
+                border: Border.all(color: borderColor, width: selected ? 2 : 1),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: KioskSpacing.md,
+                  vertical: KioskSpacing.xs,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: selected
-                          ? FontWeight.w700
-                          : FontWeight.w600,
+                child: Row(
+                  children: [
+                    Icon(
+                      icon,
+                      size: iconSize,
                       color: selected
                           ? KioskColors.brand
-                          : KioskColors.textPrimary,
+                          : KioskColors.textMuted,
                     ),
-                  ),
+                    const SizedBox(width: KioskSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: height < 64 ? 1 : 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: KioskText.optionTitle.copyWith(
+                          fontSize: height < 60 ? 15 : 17,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: selected
+                              ? KioskColors.brand
+                              : KioskColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

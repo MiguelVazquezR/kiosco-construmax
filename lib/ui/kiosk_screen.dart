@@ -113,16 +113,17 @@ class _KioskScreenState extends State<KioskScreen> with WidgetsBindingObserver {
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                width: 42,
-                height: 42,
+                width: 44,
+                height: 44,
                 child: CircularProgressIndicator(strokeWidth: 3),
               ),
-              SizedBox(height: 20),
+              SizedBox(height: KioskSpacing.lg),
               Text(
                 KioskController.verifyingMessage,
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
                   color: KioskColors.textMuted,
                 ),
               ),
@@ -143,21 +144,26 @@ class _KioskScreenState extends State<KioskScreen> with WidgetsBindingObserver {
     return LayoutBuilder(
       builder: (context, constraints) {
         final identification = _buildIdentificationSection();
+        final isWide = constraints.maxWidth >= 820;
 
         // Step 2 in progress (camera preview or keypad): it takes the whole
         // screen. The punch-type grid is hidden so the keypad fits even on a
         // small phone, where it used to be pushed out of view.
         if (_controller.method != null) {
+          const vertical = KioskSpacing.md;
           return Padding(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.symmetric(
+              horizontal: isWide ? KioskSpacing.lg : KioskSpacing.md,
+              vertical: vertical,
+            ),
             child: Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   // A landscape tablet has plenty of width, so the preview can
                   // be wider than the phone-friendly 640.
-                  maxWidth: constraints.maxWidth >= 820 ? 960 : 640,
-                  maxHeight: (constraints.maxHeight - 24).clamp(
+                  maxWidth: isWide ? 960 : 640,
+                  maxHeight: (constraints.maxHeight - vertical * 2).clamp(
                     0.0,
                     double.infinity,
                   ),
@@ -168,30 +174,29 @@ class _KioskScreenState extends State<KioskScreen> with WidgetsBindingObserver {
           );
         }
 
-        final isWide = constraints.maxWidth >= 820;
         final types = _buildTypeSection();
 
         if (isWide) {
           return Padding(
-            padding: const EdgeInsets.all(20),
+            padding: KioskSpacing.pageLandscape,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(flex: 5, child: types),
-                const SizedBox(width: 20),
-                Expanded(flex: 4, child: identification),
+                Expanded(flex: 56, child: types),
+                const SizedBox(width: KioskSpacing.xl),
+                Expanded(flex: 44, child: identification),
               ],
             ),
           );
         }
 
         return Padding(
-          padding: const EdgeInsets.all(16),
+          padding: KioskSpacing.pagePortrait,
           child: Column(
             children: [
-              Expanded(flex: 4, child: types),
-              const SizedBox(height: 16),
-              Expanded(flex: 6, child: identification),
+              Expanded(flex: 46, child: types),
+              const SizedBox(height: KioskSpacing.md),
+              Expanded(flex: 54, child: identification),
             ],
           ),
         );
@@ -202,41 +207,64 @@ class _KioskScreenState extends State<KioskScreen> with WidgetsBindingObserver {
   Widget _buildTypeSection() {
     final selected = _controller.selectedType;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 520;
+        final onChange = _controller.isSubmitting
+            ? null
+            : _controller.clearType;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Expanded(
-              child: Text(
-                '1. Elige el tipo de fichaje',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: KioskColors.textPrimary,
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    '1. Elige el tipo de fichaje',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: KioskText.screenTitle,
+                  ),
                 ),
+                if (selected != null)
+                  if (narrow)
+                    IconButton(
+                      onPressed: onChange,
+                      tooltip: 'Cambiar tipo',
+                      color: KioskColors.brand,
+                      icon: const Icon(Icons.close_rounded),
+                    )
+                  else
+                    TextButton.icon(
+                      onPressed: onChange,
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(48, 44),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: KioskSpacing.sm,
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      label: const Text('Cambiar tipo'),
+                    ),
+              ],
+            ),
+            const SizedBox(height: KioskSpacing.sm),
+            Expanded(
+              child: PunchTypeGrid(
+                types: _controller.punchTypes,
+                selectedKey: selected?.key,
+                enabled: !_controller.isSubmitting,
+                onSelect: _controller.selectType,
               ),
             ),
-            if (selected != null)
-              TextButton.icon(
-                onPressed: _controller.isSubmitting
-                    ? null
-                    : _controller.clearType,
-                icon: const Icon(Icons.close_rounded, size: 18),
-                label: const Text('Cambiar tipo'),
-              ),
           ],
-        ),
-        const SizedBox(height: 10),
-        Expanded(
-          child: PunchTypeGrid(
-            types: _controller.punchTypes,
-            selectedKey: selected?.key,
-            enabled: !_controller.isSubmitting,
-            onSelect: _controller.selectType,
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -296,31 +324,61 @@ class _KioskScreenState extends State<KioskScreen> with WidgetsBindingObserver {
           const SizedBox(height: 12),
         ],
         // Step 2 hides the punch-type grid, so the chosen type is reminded
-        // here; "Cancelar" takes the collaborator back to the waiting panel.
+        // here; "Cambiar tipo" goes back to "En espera".
         if (_controller.method != null && selectedType != null) ...[
-          Row(
-            children: [
-              const Icon(
-                Icons.check_circle_rounded,
-                size: 16,
-                color: KioskColors.brand,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'Tipo: ${selectedType.label}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: KioskColors.textPrimary,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 520;
+
+              return Row(
+                children: [
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    size: 18,
+                    color: KioskColors.brand,
                   ),
-                ),
-              ),
-            ],
+                  const SizedBox(width: KioskSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      'Tipo: ${selectedType.label}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: KioskText.body.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (narrow)
+                    IconButton(
+                      onPressed: _controller.isSubmitting
+                          ? null
+                          : _controller.clearType,
+                      tooltip: 'Cambiar tipo',
+                      color: KioskColors.brand,
+                      icon: const Icon(Icons.close_rounded),
+                    )
+                  else
+                    TextButton(
+                      onPressed: _controller.isSubmitting
+                          ? null
+                          : _controller.clearType,
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(48, 44),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: KioskSpacing.sm,
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      child: const Text('Cambiar tipo'),
+                    ),
+                ],
+              );
+            },
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: KioskSpacing.xs),
         ],
         Expanded(child: panel),
       ],

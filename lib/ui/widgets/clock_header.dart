@@ -85,9 +85,10 @@ class _ClockHeaderState extends State<ClockHeader> {
             : '${widget.appName} · ${widget.deviceLocation}';
 
         return Container(
+          constraints: BoxConstraints(minHeight: compact ? 76 : 88),
           padding: EdgeInsets.symmetric(
             horizontal: compact ? 16 : 24,
-            vertical: compact ? 10 : 16,
+            vertical: compact ? 10 : 12,
           ),
           decoration: const BoxDecoration(
             color: KioskColors.surface,
@@ -95,15 +96,16 @@ class _ClockHeaderState extends State<ClockHeader> {
           ),
           child: Row(
             children: [
+              // Discreet brand accent next to the identity block.
               Container(
-                width: 12,
-                height: compact ? 32 : 44,
+                width: compact ? 4 : 5,
+                height: 36,
                 decoration: BoxDecoration(
                   color: KioskColors.brand,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(3),
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: KioskSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,32 +115,27 @@ class _ClockHeaderState extends State<ClockHeader> {
                       widget.deviceName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: compact ? 17 : 20,
-                        fontWeight: FontWeight.w700,
-                        color: KioskColors.textPrimary,
-                      ),
+                      style: compact
+                          ? KioskText.deviceNameCompact
+                          : KioskText.deviceName,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: KioskColors.textMuted,
-                      ),
+                      style: KioskText.caption,
                     ),
                   ],
                 ),
               ),
               if (widget.clockDriftWarning)
                 const Padding(
-                  padding: EdgeInsets.only(right: 16),
+                  padding: EdgeInsets.only(right: KioskSpacing.sm),
                   child: Icon(
                     Icons.warning_amber_rounded,
-                    color: KioskColors.brand,
-                    size: 26,
+                    color: KioskColors.warningText,
+                    size: 24,
                   ),
                 ),
               Column(
@@ -148,24 +145,11 @@ class _ClockHeaderState extends State<ClockHeader> {
                   Text(
                     time,
                     maxLines: 1,
-                    style: TextStyle(
-                      fontSize: compact ? 26 : 34,
-                      fontWeight: FontWeight.w700,
-                      height: 1,
-                      color: KioskColors.textPrimary,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
+                    style: compact ? KioskText.clockCompact : KioskText.clock,
                   ),
                   if (!compact) ...[
                     const SizedBox(height: 4),
-                    Text(
-                      dateLabel,
-                      maxLines: 1,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: KioskColors.textMuted,
-                      ),
-                    ),
+                    Text(dateLabel, maxLines: 1, style: KioskText.caption),
                   ],
                 ],
               ),

@@ -43,41 +43,44 @@ class KeypadCard extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact =
-            constraints.maxHeight.isFinite && constraints.maxHeight < 520;
-        final pad = compact ? 12.0 : 16.0;
-        final gap = compact ? 6.0 : 8.0;
-        final displayHeight = compact ? 46.0 : 56.0;
-        final submitHeight = compact ? 46.0 : 56.0;
-        final cancelHeight = compact ? 40.0 : 56.0;
+            constraints.maxHeight.isFinite && constraints.maxHeight < 560;
+        final pad = compact ? 12.0 : KioskSpacing.lg;
+        final gap = compact ? 6.0 : KioskSpacing.xs;
+        final rowGap = compact ? 6.0 : 10.0;
+        final displayHeight = compact ? 46.0 : 64.0;
+        final submitHeight = compact ? 48.0 : 60.0;
+        final cancelHeight = compact ? 44.0 : 52.0;
+        final labelHeight = compact ? 14.0 : 16.0;
 
         // Everything that is not a key row, so the four rows split the rest.
         final chrome =
             pad * 2 +
-            (compact ? 14.0 : 16.0) +
+            labelHeight +
             gap + // "NÚMERO DE EMPLEADO" label
             displayHeight +
             gap +
-            (statusText != null ? (compact ? 20.0 : 22.0) : 0.0) +
-            (notice != null ? (compact ? 40.0 : 48.0) : 0.0) +
-            8 + // spacing before the actions
+            (statusText != null ? (compact ? 22.0 : 26.0) : 0.0) +
+            (notice != null ? (compact ? 40.0 : 44.0) : 0.0) +
+            gap + // spacing before the actions
             submitHeight +
             gap +
             cancelHeight;
 
         final available = constraints.maxHeight.isFinite
             ? constraints.maxHeight - chrome
-            : 4 * 60.0;
-        final keyHeight = (available / 4 - gap).clamp(
-          compact ? 34.0 : 40.0,
-          88.0,
+            : 4 * 64.0;
+        final keyHeight = (available / 4 - rowGap).clamp(
+          compact ? 40.0 : 48.0,
+          compact ? 64.0 : 76.0,
         );
 
         return Container(
           padding: EdgeInsets.all(pad),
           decoration: BoxDecoration(
             color: KioskColors.surface,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: KioskRadius.cardRadius,
             border: Border.all(color: KioskColors.border),
+            boxShadow: KioskShadows.card,
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -87,8 +90,8 @@ class KeypadCard extends StatelessWidget {
                 Text(
                   'NÚMERO DE EMPLEADO',
                   style: TextStyle(
-                    fontSize: compact ? 10 : 11,
-                    letterSpacing: 1.4,
+                    fontSize: compact ? 11 : 12,
+                    letterSpacing: compact ? 1.2 : 1.4,
                     fontWeight: FontWeight.w700,
                     color: KioskColors.textMuted,
                   ),
@@ -96,11 +99,15 @@ class KeypadCard extends StatelessWidget {
                 SizedBox(height: gap),
                 _buildDisplay(compact: compact, height: displayHeight),
                 SizedBox(height: gap),
-                ..._buildDigitRows(compact: compact, height: keyHeight, gap: gap),
+                ..._buildDigitRows(
+                  compact: compact,
+                  height: keyHeight,
+                  gap: rowGap,
+                ),
                 _buildSecondaryRow(
                   compact: compact,
                   height: keyHeight,
-                  gap: gap,
+                  gap: rowGap,
                 ),
                 if (statusText != null) ...[
                   const SizedBox(height: 6),
@@ -111,15 +118,15 @@ class KeypadCard extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 13,
                       color: KioskColors.brand,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
-                const SizedBox(height: 8),
+                SizedBox(height: gap),
                 if (notice != null) ...[
                   Text(
                     notice!,
-                    maxLines: compact ? 2 : 3,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: compact ? 11 : 12,
@@ -127,7 +134,7 @@ class KeypadCard extends StatelessWidget {
                       color: KioskColors.textMuted,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: gap),
                 ],
                 _buildSubmit(compact: compact, height: submitHeight),
                 SizedBox(height: gap),
@@ -137,8 +144,8 @@ class KeypadCard extends StatelessWidget {
                     onPressed: loading ? null : onCancel,
                     style: OutlinedButton.styleFrom(
                       textStyle: TextStyle(
-                        fontSize: compact ? 15 : 17,
-                        fontWeight: FontWeight.w600,
+                        fontSize: compact ? 15 : 16,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     child: const Text('Cancelar'),
@@ -151,13 +158,14 @@ class KeypadCard extends StatelessWidget {
       },
     );
   }
+
   Widget _buildDisplay({required bool compact, required double height}) {
     return Container(
       height: height,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: KioskColors.background,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: KioskRadius.displayRadius,
         border: Border.all(color: KioskColors.border),
       ),
       child: Text(
@@ -165,9 +173,9 @@ class KeypadCard extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          fontSize: compact ? 20 : 24,
+          fontSize: compact ? 26 : 34,
           fontWeight: FontWeight.w700,
-          letterSpacing: 1.6,
+          letterSpacing: 2,
           color: value.isEmpty
               ? KioskColors.textMuted
               : KioskColors.textPrimary,
@@ -184,7 +192,7 @@ class KeypadCard extends StatelessWidget {
         style: FilledButton.styleFrom(
           textStyle: TextStyle(
             fontSize: compact ? 16 : 18,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
           ),
         ),
         child: loading
@@ -193,7 +201,7 @@ class KeypadCard extends StatelessWidget {
                 height: 22,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.4,
-                  color: Colors.white,
+                  color: KioskColors.white,
                 ),
               )
             : const Text('Registrar'),
@@ -266,7 +274,6 @@ class KeypadCard extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _KeyButton extends StatelessWidget {
@@ -288,20 +295,20 @@ class _KeyButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: KioskColors.background,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: KioskRadius.keyRadius,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: KioskRadius.keyRadius,
         onTap: onTap,
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: KioskRadius.keyRadius,
             border: Border.all(color: KioskColors.border),
           ),
           child: Center(
             child: icon != null
                 ? Icon(
                     icon,
-                    size: dense ? 20 : 22,
+                    size: dense ? 22 : 26,
                     color: KioskColors.textPrimary,
                   )
                 : FittedBox(
@@ -309,9 +316,7 @@ class _KeyButton extends StatelessWidget {
                     child: Text(
                       label ?? '',
                       style: TextStyle(
-                        fontSize: small
-                            ? (dense ? 12 : 14)
-                            : (dense ? 20 : 24),
+                        fontSize: small ? (dense ? 12 : 14) : (dense ? 22 : 26),
                         fontWeight: FontWeight.w700,
                         color: KioskColors.textPrimary,
                       ),
@@ -323,4 +328,3 @@ class _KeyButton extends StatelessWidget {
     );
   }
 }
-

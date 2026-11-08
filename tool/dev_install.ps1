@@ -62,7 +62,18 @@ if (-not $SkipBuild) {
 }
 
 Write-Host '[dev] instalando en el dispositivo'
-& $adb install -r $apk
+$install = & $adb install -r $apk 2>&1
+$install | ForEach-Object { Write-Host $_ }
+if ($LASTEXITCODE -ne 0) {
+    if ($install -match 'INSTALL_FAILED_UPDATE_INCOMPATIBLE|signatures do not match') {
+        # El APK instalado esta firmado con otra llave (build viejo de debug): el
+        # release ahora usa android\app\kiosco-release.jks.
+        Write-Warning 'Firma distinta a la del APK instalado; desinstalando y reinstalando.'
+        & $adb uninstall com.example.kiosco | Out-Null
+        $install = & $adb install -r $apk 2>&1
+        $install | ForEach-Object { Write-Host $_ }
+    }
+}
 if ($LASTEXITCODE -ne 0) {
     # MIUI/HyperOS bloquea `adb install` (INSTALL_FAILED_USER_RESTRICTED) cuando
     # "Instalar via USB" esta desactivado: dejamos el APK en Descargas para

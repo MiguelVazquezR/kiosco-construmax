@@ -13,11 +13,14 @@ class ErrorBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: KioskSpacing.md,
+        vertical: KioskSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: KioskColors.dangerSoft,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF5C2BF)),
+        borderRadius: KioskRadius.bannerRadius,
+        border: Border.all(color: KioskColors.dangerBorder),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -27,7 +30,7 @@ class ErrorBanner extends StatelessWidget {
             color: KioskColors.danger,
             size: 22,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: KioskSpacing.xs),
           Expanded(
             child: Text(
               message,
@@ -35,7 +38,7 @@ class ErrorBanner extends StatelessWidget {
                 fontSize: 15,
                 height: 1.3,
                 color: KioskColors.danger,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -63,44 +66,47 @@ class WarningBanner extends StatelessWidget {
   final String? actionLabel;
   final VoidCallback? onAction;
 
-  static const Color _foreground = Color(0xFF8A6100);
-
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: KioskSpacing.md,
+        vertical: KioskSpacing.sm,
+      ),
       decoration: const BoxDecoration(
         color: KioskColors.warningSoft,
-        border: Border(bottom: BorderSide(color: Color(0xFFF3D9A4))),
+        border: Border(bottom: BorderSide(color: KioskColors.warningBorder)),
       ),
       child: Row(
         children: [
-          Icon(icon, color: _foreground, size: 20),
-          const SizedBox(width: 10),
+          Icon(icon, color: KioskColors.warningText, size: 22),
+          const SizedBox(width: KioskSpacing.sm),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Text(
-                message,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: _foreground,
-                  fontWeight: FontWeight.w600,
-                ),
+            child: Text(
+              message,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 14,
+                height: 1.3,
+                color: KioskColors.warningText,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
           if (actionLabel != null) ...[
-            const SizedBox(width: 8),
+            const SizedBox(width: KioskSpacing.xs),
             TextButton(
               onPressed: onAction,
               style: TextButton.styleFrom(
-                foregroundColor: _foreground,
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                foregroundColor: KioskColors.warningText,
+                minimumSize: const Size(48, 44),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: KioskSpacing.sm,
+                ),
                 textStyle: const TextStyle(
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
               ),

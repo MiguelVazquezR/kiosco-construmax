@@ -28,18 +28,27 @@ class UnreachableView extends StatelessWidget {
           padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
             color: KioskColors.surface,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: KioskRadius.cardRadius,
             border: Border.all(color: KioskColors.border),
+            boxShadow: KioskShadows.card,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.cloud_off_rounded,
-                size: 64,
-                color: KioskColors.danger,
+              Container(
+                width: 104,
+                height: 104,
+                decoration: const BoxDecoration(
+                  color: KioskColors.dangerSoft,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.cloud_off_rounded,
+                  size: 52,
+                  color: KioskColors.danger,
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: KioskSpacing.lg),
               Text(
                 title,
                 textAlign: TextAlign.center,
@@ -49,27 +58,21 @@ class UnreachableView extends StatelessWidget {
                   color: KioskColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: KioskSpacing.xs),
               Text(
                 hint,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: KioskColors.textMuted,
-                ),
+                style: KioskText.secondary.copyWith(height: 1.4),
               ),
               if (detail != null && detail != title) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: KioskSpacing.xs),
                 Text(
                   detail!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: KioskColors.textMuted,
-                  ),
+                  style: KioskText.caption,
                 ),
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: KioskSpacing.xl),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(

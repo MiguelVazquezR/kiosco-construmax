@@ -50,6 +50,42 @@ flutter build apk --release \
   tablets sin *device owner* Android puede pedir confirmación manual; sin el
   flag la app nunca lo intenta.
 
+## Distribuir el APK (sideload, sin Play Store)
+
+Las tablets del kiosco no pasan por Google Play: se compila un APK firmado y se
+instala a mano en cada equipo.
+
+```powershell
+# APK firmado universal -> dist\kiosco-construmax-<version>.apk (+ su .sha256)
+powershell -ExecutionPolicy Bypass -File tool\build_release_apk.ps1
+
+# variantes
+#   -LockTask              activa el screen pinning (KIOSK_LOCK_TASK=true)
+#   -BuildNumber 2         sube el versionCode para actualizar equipos
+#   -BaseUrl https://...   apunta a otro backend
+#   -SkipBuild             solo copia y verifica el APK ya compilado
+#   -NewKeystore           crea la llave de firma la primera vez
+```
+
+- **Firma:** `android/app/kiosco-release.jks` + `android/key.properties`, ambos
+  fuera de git. Respáldalos en un lugar seguro: todas las actualizaciones deben
+  firmarse con la misma llave o Android las rechaza
+  (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`) y hay que desinstalar la app.
+- **Universal:** el APK incluye `arm64-v8a`, `armeabi-v7a` y `x86_64` (~50 MB),
+  así que el mismo archivo sirve para cualquier tablet.
+- **URL grabada en el build:** `KIOSK_BASE_URL` queda dentro del binario
+  (por defecto `https://erp.construmax-occidente.com/api/v1/kiosk`). Si cambia
+  el servidor hay que recompilar y volver a repartir el archivo.
+- **Migración desde el APK de pruebas:** los equipos que ya traen el build
+  anterior (firmado con la llave de *debug*) deben desinstalarlo primero; al
+  cambiar de firma también cambia el `device_key` (android id) y el backend los
+  registra como dispositivos nuevos.
+
+Instalación en cada tablet: copiar el `.apk` al equipo, habilitar
+*Ajustes → Seguridad → Instalar apps desconocidas* para el explorador de
+archivos, abrir el archivo e instalar (Play Protect pedirá *Instalar de todos
+modos*). Después conceder permisos de cámara y ubicación.
+
 ## Permisos Android
 
 Cámara, ubicación (`ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION`), internet

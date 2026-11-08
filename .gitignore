@@ -46,3 +46,11 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Release signing: the keystore and its passwords never go to the repo.
+/android/key.properties
+/android/app/*.jks
+/android/app/*.keystore
+
+# APKs listos para distribuir (los genera tool/build_release_apk.ps1)
+/dist/

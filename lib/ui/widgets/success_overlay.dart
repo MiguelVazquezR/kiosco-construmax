@@ -18,7 +18,7 @@ class SuccessOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned.fill(
       child: ColoredBox(
-        color: const Color(0xE611161C),
+        color: KioskColors.successScrim,
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -27,50 +27,53 @@ class SuccessOverlay extends StatelessWidget {
               padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
                 color: KioskColors.surface,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: KioskRadius.overlayRadius,
+                boxShadow: KioskShadows.card,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 76,
-                    height: 76,
+                    width: 88,
+                    height: 88,
                     decoration: const BoxDecoration(
-                      color: Color(0xFFE6F5EF),
+                      color: KioskColors.successSoft,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.check_rounded,
                       color: KioskColors.success,
-                      size: 44,
+                      size: 52,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: KioskSpacing.md),
                   const Text(
                     'Registro exitoso',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w700,
                       color: KioskColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: KioskSpacing.sm),
                   if (result.userName.isNotEmpty)
                     Text(
                       result.userName,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 20,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: KioskColors.textPrimary,
                       ),
                     ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: KioskSpacing.xs),
                   Text(
                     '${result.typeLabel} · ${result.punchedAt}',
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 17,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: KioskColors.brand,
                     ),
                   ),

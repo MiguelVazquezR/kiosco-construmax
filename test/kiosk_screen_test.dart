@@ -371,6 +371,47 @@ void main() {
     });
   });
 
+  group('layout', () {
+    testWidgets('the waiting view fits a landscape tablet', (tester) async {
+      await withKiosk(tester, (controller) async {
+        expect(find.text('En espera'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+    });
+
+    testWidgets('the waiting view fits a portrait tablet', (tester) async {
+      await withKiosk(tester, (controller) async {
+        expect(find.text('1. Elige el tipo de fichaje'), findsOneWidget);
+        expect(find.text('En espera'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }, size: const Size(800, 1280));
+    });
+
+    testWidgets('the camera step fits a short landscape screen', (
+      tester,
+    ) async {
+      await withKiosk(tester, (controller) async {
+        await tapText(tester, 'Entrada');
+        expect(find.text('Tipo: Entrada'), findsOneWidget);
+
+        await tapText(tester, 'Con mi rostro');
+
+        expect(find.text('Capturar'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }, size: const Size(1024, 600));
+    });
+
+    testWidgets('the keypad fits a short landscape screen', (tester) async {
+      await withKiosk(tester, (controller) async {
+        await tapText(tester, 'Entrada');
+        await tapText(tester, 'Con mi número de empleado');
+
+        expect(find.text('Registrar'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }, size: const Size(1024, 600));
+    });
+  });
+
   group('small screens', () {
     testWidgets('the keypad takes over the screen on a phone', (tester) async {
       await withKiosk(tester, (controller) async {

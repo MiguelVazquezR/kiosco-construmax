@@ -13,39 +13,54 @@ class WaitingPanel extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: KioskColors.surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: KioskRadius.cardRadius,
         border: Border.all(color: KioskColors.border),
+        boxShadow: KioskShadows.card,
       ),
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.touch_app_rounded,
-            size: 56,
-            color: KioskColors.brand,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'En espera',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: KioskColors.textPrimary,
+      padding: const EdgeInsets.all(KioskSpacing.xl),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final circleSize = constraints.maxHeight < 420 ? 72.0 : 92.0;
+          final minHeight = constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : 0.0;
+
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: minHeight),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: circleSize,
+                    height: circleSize,
+                    decoration: const BoxDecoration(
+                      color: KioskColors.brandSoft,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.touch_app_rounded,
+                      size: circleSize * 0.46,
+                      color: KioskColors.brand,
+                    ),
+                  ),
+                  const SizedBox(height: KioskSpacing.md),
+                  const Text(
+                    'En espera',
+                    textAlign: TextAlign.center,
+                    style: KioskText.sectionTitle,
+                  ),
+                  const SizedBox(height: KioskSpacing.xs),
+                  Text(
+                    message ?? 'Selecciona el tipo de fichaje para comenzar.',
+                    textAlign: TextAlign.center,
+                    style: KioskText.secondary.copyWith(height: 1.4),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            message ?? 'Selecciona el tipo de fichaje para comenzar.',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 15,
-              height: 1.4,
-              color: KioskColors.textMuted,
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
