@@ -48,7 +48,7 @@ class SuccessOverlay extends StatelessWidget {
                   ),
                   const SizedBox(height: KioskSpacing.md),
                   const Text(
-                    'Registro exitoso',
+                    '¡Registro exitoso!',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 26,
@@ -68,35 +68,41 @@ class SuccessOverlay extends StatelessWidget {
                       ),
                     ),
                   const SizedBox(height: KioskSpacing.xs),
-                  Text(
-                    '${result.typeLabel} · ${result.punchedAt}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: KioskColors.brand,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: KioskSpacing.md,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: KioskColors.brandSoft,
+                      borderRadius: KioskRadius.bannerRadius,
+                      border: Border.all(color: KioskColors.border),
+                    ),
+                    child: Text(
+                      '${result.typeLabel} · ${result.punchedAt}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: KioskColors.brand,
+                      ),
                     ),
                   ),
-                  if (result.dateLabel.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                  if (result.similarity != null) ...[
+                    const SizedBox(height: KioskSpacing.xs),
                     Text(
-                      result.dateLabel,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: KioskColors.textMuted,
-                      ),
+                      'Identificado por rostro · '
+                      '${formatSimilarity(result.similarity!)}% de coincidencia',
+                      textAlign: TextAlign.center,
+                      style: KioskText.secondary,
                     ),
                   ],
                   if (result.suggestedNextLabel != null) ...[
                     const SizedBox(height: 18),
                     Text(
-                      'Siguiente registro sugerido: '
-                      '${result.suggestedNextLabel}',
+                      'Siguiente sugerido: ${result.suggestedNextLabel}',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: KioskColors.textMuted,
-                      ),
+                      style: KioskText.secondary,
                     ),
                   ],
                   const SizedBox(height: 24),
@@ -104,8 +110,14 @@ class SuccessOverlay extends StatelessWidget {
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: onDismiss,
-                      child: const Text('Continuar'),
+                      child: const Text('Cerrar'),
                     ),
+                  ),
+                  const SizedBox(height: KioskSpacing.xs),
+                  const Text(
+                    'Esta ventana se cierra automáticamente en unos segundos.',
+                    textAlign: TextAlign.center,
+                    style: KioskText.caption,
                   ),
                 ],
               ),
@@ -115,4 +127,12 @@ class SuccessOverlay extends StatelessWidget {
       ),
     );
   }
+}
+
+/// `98.42` → `98.42`, `98.5` → `98.5`, `98.0` → `98`.
+String formatSimilarity(double value) {
+  return value
+      .toStringAsFixed(2)
+      .replaceAll(RegExp(r'0+$'), '')
+      .replaceAll(RegExp(r'\.$'), '');
 }

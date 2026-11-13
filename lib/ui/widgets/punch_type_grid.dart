@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/models/kiosk_context.dart';
+import '../../data/models/punch_option.dart';
 import '../kiosk_theme.dart';
 
 /// Step 1: the six punch types sent by `/bootstrap`, rendered in a 2×3 grid.
@@ -11,12 +12,19 @@ class PunchTypeGrid extends StatelessWidget {
     required this.onSelect,
     this.selectedKey,
     this.enabled = true,
+    this.options = const [],
+    this.onBlocked,
   });
 
   final List<PunchType> types;
   final ValueChanged<PunchType> onSelect;
   final String? selectedKey;
   final bool enabled;
+
+  /// Daily sequence reported by the server: a type with `allowed == false` is
+  /// rendered dimmed and explains its reason when tapped.
+  final List<PunchOption> options;
+  final ValueChanged<PunchOption>? onBlocked;
 
   static const Map<String, IconData> _icons = {
     'check_in': Icons.login_rounded,
@@ -81,13 +89,32 @@ class PunchTypeGrid extends StatelessWidget {
     if (index >= types.length) {
       return const SizedBox.shrink();
     }
+
     final type = types[index];
-    return _PunchTypeButton(
+    final option = _optionFor(type.key);
+    final blocked = option != null && !option.allowed;
+
+    final tile = _PunchTypeButton(
       label: type.label,
       icon: _icons[type.key] ?? Icons.fingerprint_rounded,
-      selected: type.key == selectedKey,
-      onTap: enabled ? () => onSelect(type) : null,
+      selected: !blocked && type.key == selectedKey,
+      onTap: !enabled
+          ? null
+          : blocked
+          ? () => onBlocked?.call(option)
+          : () => onSelect(type),
     );
+
+    // Dimmed but still tappable, so the collaborator learns why (web parity).
+    return Opacity(opacity: blocked ? 0.45 : 1, child: tile);
+  }
+
+  PunchOption? _optionFor(String key) {
+    for (final option in options) {
+      if (option.type == key) return option;
+    }
+
+    return null;
   }
 }
 

@@ -1,3 +1,5 @@
+import 'punch_option.dart';
+
 /// Successful punch returned by `POST /punch` and `POST /face-punch`.
 class PunchResult {
   const PunchResult({
@@ -10,6 +12,7 @@ class PunchResult {
     this.suggestedNext,
     this.suggestedNextLabel,
     this.similarity,
+    this.options = const [],
   });
 
   final String userName;
@@ -26,9 +29,12 @@ class PunchResult {
   final String? suggestedNext;
   final String? suggestedNextLabel;
 
-  /// 0-100 percentage reported by AWS Rekognition (never shown to the
-  /// collaborator).
+  /// 0-100 percentage reported by AWS Rekognition, shown to the collaborator
+  /// in the success overlay (§6.2).
   final double? similarity;
+
+  /// Daily sequence reported by the server, empty when it did not send it.
+  final List<PunchOption> options;
 
   factory PunchResult.fromJson(Map<String, dynamic> json) {
     return PunchResult(
@@ -43,6 +49,7 @@ class PunchResult {
       similarity: json['similarity'] is num
           ? (json['similarity'] as num).toDouble()
           : double.tryParse('${json['similarity'] ?? ''}'),
+      options: PunchOption.listFromJson(json['options']),
     );
   }
 

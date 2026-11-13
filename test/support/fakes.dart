@@ -5,6 +5,7 @@ import 'package:kiosco/data/models/api_error.dart';
 import 'package:kiosco/data/models/device_identity.dart';
 import 'package:kiosco/data/models/gps_fix.dart';
 import 'package:kiosco/data/models/kiosk_context.dart';
+import 'package:kiosco/data/models/punch_option.dart';
 import 'package:kiosco/data/models/punch_result.dart';
 import 'package:kiosco/services/device_identity_service.dart';
 import 'package:kiosco/services/location_service.dart';
@@ -46,8 +47,98 @@ const PunchResult sampleResult = PunchResult(
   dateLabel: '07/11/2026',
   suggestedNext: 'lunch_start',
   suggestedNextLabel: 'Inicio de comida',
-  similarity: 97.5,
+  options: sampleOptions,
 );
+
+/// The daily sequence of `options[]`, straight from the backend contract.
+const List<PunchOption> sampleOptions = [
+  PunchOption(
+    type: 'check_in',
+    label: 'Entrada',
+    allowed: false,
+    reason:
+        'Ya registraste tu entrada a las 09:14. Selecciona otro tipo de registro.',
+    lastRegisteredAt: '09:14',
+  ),
+  PunchOption(type: 'lunch_start', label: 'Inicio de comida', allowed: true),
+  PunchOption(
+    type: 'lunch_end',
+    label: 'Fin de comida',
+    allowed: false,
+    reason: 'No tienes una comida en curso.',
+  ),
+  PunchOption(type: 'break_start', label: 'Permiso / salida', allowed: true),
+  PunchOption(
+    type: 'break_end',
+    label: 'Regreso de permiso',
+    allowed: false,
+    reason: 'No tienes un permiso en curso.',
+  ),
+  PunchOption(type: 'check_out', label: 'Salida', allowed: true),
+];
+
+/// The `422 attendance_punch_not_allowed` body of the specification (§3.5).
+const Map<String, dynamic> punchNotAllowedPayload = {
+  'message':
+      'Ya registraste tu entrada a las 09:14. Selecciona otro tipo de registro.',
+  'code': 'attendance_punch_not_allowed',
+  'type': 'check_in',
+  'last_registered_at': '09:14',
+  'options': [
+    {
+      'type': 'check_in',
+      'label': 'Entrada',
+      'allowed': false,
+      'reason':
+          'Ya registraste tu entrada a las 09:14. Selecciona otro tipo de registro.',
+      'last_registered_at': '09:14',
+    },
+    {
+      'type': 'lunch_start',
+      'label': 'Inicio de comida',
+      'allowed': true,
+      'reason': null,
+      'last_registered_at': null,
+    },
+    {
+      'type': 'lunch_end',
+      'label': 'Fin de comida',
+      'allowed': false,
+      'reason': 'No tienes una comida en curso.',
+      'last_registered_at': null,
+    },
+    {
+      'type': 'break_start',
+      'label': 'Permiso / salida',
+      'allowed': true,
+      'reason': null,
+      'last_registered_at': null,
+    },
+    {
+      'type': 'break_end',
+      'label': 'Regreso de permiso',
+      'allowed': false,
+      'reason': 'No tienes un permiso en curso.',
+      'last_registered_at': null,
+    },
+    {
+      'type': 'check_out',
+      'label': 'Salida',
+      'allowed': true,
+      'reason': null,
+      'last_registered_at': null,
+    },
+  ],
+  'errors': {
+    'type': [
+      'Ya registraste tu entrada a las 09:14. Selecciona otro tipo de registro.',
+    ],
+  },
+};
+
+/// A `422` business rejection, ready to be thrown by [FakeKioskApi].
+ApiError punchNotAllowedError() =>
+    ApiError.fromResponse(422, punchNotAllowedPayload);
 
 class FakeKioskApi implements KioskApi {
   FakeKioskApi({

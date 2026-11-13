@@ -15,11 +15,9 @@ abstract class FaceCamera {
 
   bool get isReady;
 
-  /// Width / height ratio of [buildPreview] as it must be drawn on screen, or
-  /// `null` while the preview is not ready. The card needs it so the frame is
-  /// never stretched to fill its box.
-  double? get previewAspectRatio;
-
+  /// Live frame that fills its whole box (`BoxFit.cover`): it keeps the real
+  /// sensor ratio in any orientation and only crops the overflow, so the image
+  /// is never stretched.
   Widget buildPreview();
 
   /// `null` when no frame could be captured.
@@ -79,30 +77,12 @@ class DeviceFaceCamera implements FaceCamera {
   }
 
   @override
-  double? get previewAspectRatio {
-    final controller = _controller;
-    if (controller == null || !controller.value.isInitialized) return null;
-
-    final value = controller.value;
-    final orientation =
-        value.previewPauseOrientation ??
-        value.lockedCaptureOrientation ??
-        value.deviceOrientation;
-    // Same rule as `CameraPreview`: the texture is upright, so the sensor
-    // ratio must be inverted while the device is held in portrait.
-    final isLandscape =
-        orientation == DeviceOrientation.landscapeLeft ||
-        orientation == DeviceOrientation.landscapeRight;
-    return isLandscape ? value.aspectRatio : 1 / value.aspectRatio;
-  }
-
-  @override
   Widget buildPreview() {
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) {
       return const SizedBox.shrink();
     }
-    return CameraPreview(controller);
+    return _CoverCameraPreview(controller: controller);
   }
 
   @override
@@ -133,4 +113,85 @@ class DeviceFaceCamera implements FaceCamera {
       // The controller may already be gone.
     }
   }
+}
+
+/// Live preview that fills its box the way `BoxFit.cover` does.
+///
+/// `CameraPreview` rotates the texture and sizes itself with an `AspectRatio`
+/// whose ratio depends on the device orientation, so the box handed to it must
+/// have that same ratio: a tight box with a different ratio (as the card used
+/// to build) makes `AspectRatio` ignore its ratio and stretch the image, which
+/// is what happened when the tablet was held in landscape.
+///
+/// The widget listens to the controller, so rotating the tablet recomputes the
+/// box instead of keeping the previous orientation's ratio. The overflow is
+/// cropped, never squeezed.
+class _CoverCameraPreview extends StatelessWidget {
+  const _CoverCameraPreview({required this.controller});
+
+  final CameraController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<CameraValue>(
+      valueListenable: controller,
+      builder: (context, value, _) {
+        if (!value.isInitialized) return const SizedBox.shrink();
+        final ratio = _displayAspectRatio(value);
+        return ClipRect(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final box = constraints.biggest;
+              if (!box.width.isFinite || !box.height.isFinite || box.isEmpty) {
+                return CameraPreview(controller);
+              }
+              // Cover: the frame keeps its ratio and the overflow is cropped.
+              final frame = coverFrameSize(box, ratio);
+              return OverflowBox(
+                minWidth: frame.width,
+                maxWidth: frame.width,
+                minHeight: frame.height,
+                maxHeight: frame.height,
+                child: CameraPreview(controller),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  /// Width / height ratio of the frame on screen. Mirrors the rule used by
+  /// `CameraPreview`: the texture is already upright, so the sensor ratio is
+  /// inverted while the device is held in portrait.
+  static double _displayAspectRatio(CameraValue value) {
+    final orientation = value.isRecordingVideo
+        ? value.recordingOrientation ?? value.deviceOrientation
+        : value.previewPauseOrientation ??
+              value.lockedCaptureOrientation ??
+              value.deviceOrientation;
+    final isLandscape =
+        orientation == DeviceOrientation.landscapeLeft ||
+        orientation == DeviceOrientation.landscapeRight;
+    return isLandscape ? value.aspectRatio : 1 / value.aspectRatio;
+  }
+}
+
+/// Box that covers [available] while keeping [aspectRatio] (width / height).
+///
+/// The result always has the requested ratio, so a frame drawn into it is never
+/// stretched, and it is never smaller than [available] on either axis, so the
+/// leftover area can just be clipped. Degenerate constraints are returned as-is
+/// because there is nothing sensible to compute from them.
+Size coverFrameSize(Size available, double aspectRatio) {
+  if (!available.width.isFinite ||
+      !available.height.isFinite ||
+      available.isEmpty ||
+      aspectRatio <= 0) {
+    return available;
+  }
+  final width = (available.width / available.height) > aspectRatio
+      ? available.width
+      : available.height * aspectRatio;
+  return Size(width, width / aspectRatio);
 }

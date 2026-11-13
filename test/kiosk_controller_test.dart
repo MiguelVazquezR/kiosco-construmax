@@ -327,6 +327,150 @@ void main() {
     });
   });
 
+  group('punch rejection', () {
+    test('a 422 attendance_punch_not_allowed opens the dialog', () async {
+      final api = FakeKioskApi(punchError: punchNotAllowedError());
+      final controller = makeController(api: api);
+      await controller.start();
+      controller.selectType(demoPunchTypes.first);
+      await controller.selectMethod(IdentificationMethod.employeeNumber);
+      controller.appendKey('EMP-0100');
+
+      await controller.submitEmployeeNumber();
+
+      expect(controller.punchNotAllowed, isNotNull);
+      expect(controller.punchNotAllowed?.title, 'Ese registro ya se realizó');
+      expect(controller.punchNotAllowed?.lastRegisteredAt, '09:14');
+      expect(controller.punchNotAllowed?.options, hasLength(6));
+      // A business rejection is a dialog, never the red banner.
+      expect(controller.errorMessage, isNull);
+      // Back to step 1 with the dimmed grid still available.
+      expect(controller.selectedType, isNull);
+      expect(controller.method, isNull);
+      expect(controller.isWaiting, isTrue);
+      expect(controller.options, hasLength(6));
+      expect(controller.options.first.allowed, isFalse);
+      expect(controller.isSubmitting, isFalse);
+
+      controller.dispose();
+    });
+
+    test('dismissing the dialog returns to the waiting view', () async {
+      final api = FakeKioskApi(punchError: punchNotAllowedError());
+      final controller = makeController(api: api);
+      await controller.start();
+      controller.selectType(demoPunchTypes.first);
+      await controller.selectMethod(IdentificationMethod.employeeNumber);
+      controller.appendKey('EMP-0100');
+      await controller.submitEmployeeNumber();
+
+      await controller.dismissPunchNotAllowed();
+
+      expect(controller.punchNotAllowed, isNull);
+      expect(controller.selectedType, isNull);
+      expect(controller.method, isNull);
+      expect(controller.employeeNumber, isEmpty);
+      expect(controller.errorMessage, isNull);
+      expect(controller.isWaiting, isTrue);
+      // The sequence is kept so the grid still dims the rejected type.
+      expect(controller.options, hasLength(6));
+
+      controller.dispose();
+    });
+
+    test('a disabled type explains itself without a request', () async {
+      final api = FakeKioskApi(punchError: punchNotAllowedError());
+      final controller = makeController(api: api);
+      await controller.start();
+      controller.selectType(demoPunchTypes.first);
+      await controller.selectMethod(IdentificationMethod.employeeNumber);
+      controller.appendKey('EMP-0100');
+      await controller.submitEmployeeNumber();
+      await controller.dismissPunchNotAllowed();
+
+      final calls = api.punchCalls;
+      controller.showBlockedOption(controller.options.first);
+
+      expect(api.punchCalls, calls);
+      expect(controller.punchNotAllowed?.type, 'check_in');
+      expect(controller.punchNotAllowed?.lastRegisteredAt, '09:14');
+      expect(
+        controller.punchNotAllowed?.title,
+        'Ese registro ya se realizó',
+      );
+
+      controller.dispose();
+    });
+
+    test('a disabled type without last punch uses the generic wording',
+        () async {
+      final api = FakeKioskApi(punchError: punchNotAllowedError());
+      final controller = makeController(api: api);
+      await controller.start();
+      controller.selectType(demoPunchTypes.first);
+      await controller.selectMethod(IdentificationMethod.employeeNumber);
+      controller.appendKey('EMP-0100');
+      await controller.submitEmployeeNumber();
+      await controller.dismissPunchNotAllowed();
+
+      final blocked = controller.options.firstWhere(
+        (option) => option.type == 'lunch_end',
+      );
+      controller.showBlockedOption(blocked);
+
+      expect(controller.punchNotAllowed?.message, 'No tienes una comida en curso.');
+      expect(
+        controller.punchNotAllowed?.title,
+        'No se pudo registrar ese movimiento',
+      );
+
+      controller.dispose();
+    });
+
+    test('face: a second tap during the capture sends one punch', () async {
+      final api = FakeKioskApi()..gate = Completer<void>();
+      final camera = FakeFaceCamera();
+      final controller = makeController(api: api, camera: camera);
+      await controller.start();
+      controller.selectType(demoPunchTypes.first);
+      await controller.selectMethod(IdentificationMethod.face);
+
+      final first = controller.submitFace();
+      await controller.submitFace();
+      api.gate!.complete();
+      await first;
+
+      expect(camera.captureCalls, 1);
+      expect(api.facePunchCalls, 1);
+      expect(controller.isSubmitting, isFalse);
+
+      controller.dispose();
+    });
+
+    test('a successful punch keeps the sequence until the overlay closes',
+        () async {
+      final controller = makeController();
+      await controller.start();
+      controller.selectType(demoPunchTypes.first);
+      await controller.selectMethod(IdentificationMethod.employeeNumber);
+      controller.appendKey('EMP-0001');
+
+      await controller.submitEmployeeNumber();
+
+      expect(controller.lastResult, isNotNull);
+      expect(controller.options, hasLength(6));
+      expect(controller.punchNotAllowed, isNull);
+
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+
+      expect(controller.lastResult, isNull);
+      expect(controller.options, isEmpty);
+      expect(controller.selectedType, isNull);
+
+      controller.dispose();
+    });
+  });
+
   group('location banner', () {
     test('flags the banner while the OS switch is off', () async {
       final location = FakeLocationService(serviceEnabled: false);

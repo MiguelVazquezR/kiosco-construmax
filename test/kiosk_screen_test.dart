@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kiosco/data/models/api_error.dart';
 import 'package:kiosco/data/models/kiosk_context.dart';
+import 'package:kiosco/data/models/punch_not_allowed.dart';
+import 'package:kiosco/data/models/punch_result.dart';
 import 'package:kiosco/state/kiosk_controller.dart';
 import 'package:kiosco/ui/kiosk_screen.dart';
 import 'package:kiosco/ui/kiosk_theme.dart';
@@ -229,7 +233,7 @@ void main() {
   });
 
   group('success overlay', () {
-    testWidgets('shows the confirmation and Continuar resets the kiosk', (
+    testWidgets('shows the confirmation and Cerrar resets the kiosk', (
       tester,
     ) async {
       await withKiosk(tester, (controller) async {
@@ -238,18 +242,76 @@ void main() {
         await tapDigits(tester, ['1', '2', '3', '4']);
         await tapText(tester, 'Registrar');
 
-        expect(find.text('Registro exitoso'), findsOneWidget);
+        expect(find.text('¡Registro exitoso!'), findsOneWidget);
         expect(find.text('Ana Torres'), findsOneWidget);
         expect(find.text('Entrada · 08:03'), findsOneWidget);
+        expect(find.text('Siguiente sugerido: Inicio de comida'), findsOneWidget);
+        expect(
+          find.text('Esta ventana se cierra automáticamente en unos segundos.'),
+          findsOneWidget,
+        );
+        // The keypad response carries no biometric similarity.
+        expect(find.textContaining('de coincidencia'), findsNothing);
         expect(apiOf(controller).lastEmployeeNumber, '1234');
 
-        await tapText(tester, 'Continuar');
+        await tapText(tester, 'Cerrar');
 
-        expect(find.text('Registro exitoso'), findsNothing);
+        expect(find.text('¡Registro exitoso!'), findsNothing);
         expect(find.text('En espera'), findsOneWidget);
         expect(controller.selectedType, isNull);
         expect(controller.lastResult, isNull);
       });
+    });
+
+    testWidgets('face: shows the match percentage', (tester) async {
+      final api = FakeKioskApi(
+        result: const PunchResult(
+          userName: 'Ana Torres',
+          employeeNumber: 'EMP-0001',
+          type: 'check_in',
+          typeLabel: 'Entrada',
+          punchedAt: '08:03',
+          dateLabel: '07/11/2026',
+          similarity: 98.42,
+        ),
+      );
+
+      await withKiosk(tester, (controller) async {
+        await tapText(tester, 'Entrada');
+        await tapText(tester, 'Con mi rostro');
+        await tapText(tester, 'Capturar');
+
+        expect(find.text('¡Registro exitoso!'), findsOneWidget);
+        expect(
+          find.text('Identificado por rostro · 98.42% de coincidencia'),
+          findsOneWidget,
+        );
+      }, api: api);
+    });
+
+    testWidgets('a punch in flight shows the processing overlay', (
+      tester,
+    ) async {
+      final api = FakeKioskApi()..gate = Completer<void>();
+
+      await withKiosk(tester, (controller) async {
+        await tapText(tester, 'Entrada');
+        await tapText(tester, 'Con mi número de empleado');
+        await tapDigits(tester, ['1', '2', '3', '4']);
+
+        await tester.tap(find.text('Registrar'));
+        await tester.pump();
+
+        expect(find.text('Procesando tu registro…'), findsOneWidget);
+        expect(find.text('Esto tarda solo un momento.'), findsOneWidget);
+
+        api.gate!.complete();
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text('Procesando tu registro…'), findsNothing);
+        expect(find.text('¡Registro exitoso!'), findsOneWidget);
+      }, api: api);
     });
 
     testWidgets('a rejected punch keeps the kiosk on the keypad', (
@@ -271,8 +333,57 @@ void main() {
         await tapText(tester, 'Registrar');
 
         expect(find.text('El número de empleado no existe.'), findsOneWidget);
-        expect(find.text('Registro exitoso'), findsNothing);
+        expect(find.text('¡Registro exitoso!'), findsNothing);
         expect(find.byType(KeypadCard), findsOneWidget);
+        // A plain validation error is a banner, never the rejection dialog.
+        expect(find.text('Ese registro ya se realizó'), findsNothing);
+      }, api: api);
+    });
+  });
+
+  group('punch rejection', () {
+    testWidgets('a 422 shows the already-registered dialog', (tester) async {
+      final api = FakeKioskApi(punchError: punchNotAllowedError());
+
+      await withKiosk(tester, (controller) async {
+        await tapText(tester, 'Entrada');
+        await tapText(tester, 'Con mi número de empleado');
+        await tapDigits(tester, ['1', '0', '0']);
+        await tapText(tester, 'Registrar');
+
+        expect(find.text('Ese registro ya se realizó'), findsOneWidget);
+        expect(find.text('Entrada · Registrado a las 09:14'), findsOneWidget);
+        // The server message already asks for another type: no repeated hint.
+        expect(find.text(PunchNotAllowed.hint), findsNothing);
+        expect(find.textContaining('Ya registraste tu entrada'), findsOneWidget);
+
+        await tapText(tester, 'Elegir otro registro');
+
+        expect(find.text('Ese registro ya se realizó'), findsNothing);
+        expect(find.text('En espera'), findsOneWidget);
+        expect(controller.selectedType, isNull);
+      }, api: api);
+    });
+
+    testWidgets('a dimmed type explains itself without a request', (
+      tester,
+    ) async {
+      final api = FakeKioskApi(punchError: punchNotAllowedError());
+
+      await withKiosk(tester, (controller) async {
+        await tapText(tester, 'Entrada');
+        await tapText(tester, 'Con mi número de empleado');
+        await tapDigits(tester, ['1', '0', '0']);
+        await tapText(tester, 'Registrar');
+        await tapText(tester, 'Elegir otro registro');
+
+        final calls = api.punchCalls;
+
+        // The rejected type is dimmed but still tappable: it explains itself.
+        await tapText(tester, 'Entrada');
+
+        expect(find.text('Ese registro ya se realizó'), findsOneWidget);
+        expect(api.punchCalls, calls);
       }, api: api);
     });
   });

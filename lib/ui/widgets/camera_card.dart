@@ -8,6 +8,9 @@ import '../kiosk_theme.dart';
 /// the bottom edge, so the frame keeps every pixel available. That matters on
 /// a tablet held in landscape, where stacked buttons used to leave room for a
 /// single line of video.
+///
+/// [preview] is expected to fill its box by itself (cover: real frame ratio,
+/// overflow cropped), so the card never stretches it to a different shape.
 class CameraCard extends StatelessWidget {
   const CameraCard({
     super.key,
@@ -19,7 +22,6 @@ class CameraCard extends StatelessWidget {
     this.hint,
     this.statusText,
     this.notice,
-    this.aspectRatio,
   });
 
   final Widget preview;
@@ -30,19 +32,12 @@ class CameraCard extends StatelessWidget {
   final String? hint;
   final String? statusText;
 
-  /// Width / height ratio of the frame as it must be drawn. When known (e.g.
-  /// `4 / 3` in landscape) the preview covers the card instead of being
-  /// stretched to its box.
-  final double? aspectRatio;
-
   /// Warning shown under the hint, e.g. when the biometric provider is not
   /// configured on the server yet.
   final String? notice;
 
   @override
   Widget build(BuildContext context) {
-    // Portrait fallback for a camera that has not reported its ratio yet.
-    final ratio = aspectRatio ?? 3 / 4;
     final hasText = hint != null || statusText != null || notice != null;
 
     // The preview owns the whole card: the dark surface, the rounded corners
@@ -54,19 +49,7 @@ class CameraCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (ready)
-              FittedBox(
-                fit: BoxFit.cover,
-                clipBehavior: Clip.hardEdge,
-                alignment: Alignment.center,
-                // Fixed logical size with the real frame ratio, so the child
-                // is never stretched; `BoxFit.cover` crops the overflow.
-                child: SizedBox(
-                  width: 1000,
-                  height: 1000 / ratio,
-                  child: preview,
-                ),
-              ),
+            if (ready) preview,
             // Oval guide so the collaborator centres the face.
             IgnorePointer(
               child: Center(

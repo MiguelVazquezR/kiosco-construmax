@@ -27,9 +27,6 @@ class FakeFaceCamera implements FaceCamera {
       const SizedBox.expand(key: ValueKey('fake-camera-preview'));
 
   @override
-  double? get previewAspectRatio => 3 / 4;
-
-  @override
   Future<String?> capture() async {
     captureCalls++;
     return capturedDataUrl;

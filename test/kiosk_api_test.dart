@@ -173,6 +173,59 @@ void main() {
       );
     });
 
+    test('keeps the code and body of a punch rejection', () async {
+      final adapter = _ScriptedAdapter(
+        (_) async => _json({
+          'message': 'Ya registraste tu entrada a las 09:14. '
+              'Selecciona otro tipo de registro.',
+          'code': 'attendance_punch_not_allowed',
+          'type': 'check_in',
+          'last_registered_at': '09:14',
+          'options': [
+            {
+              'type': 'check_in',
+              'label': 'Entrada',
+              'allowed': false,
+              'reason': 'Ya registraste tu entrada a las 09:14.',
+              'last_registered_at': '09:14',
+            },
+            {'type': 'check_out', 'label': 'Salida', 'allowed': true},
+          ],
+          'errors': {
+            'type': ['Ya registraste tu entrada a las 09:14.'],
+          },
+        }, 422),
+      );
+
+      await expectLater(
+        _apiWith(adapter).punch(
+          employeeNumber: 'EMP-0001',
+          type: 'check_in',
+          location: _fix,
+          identity: _identity,
+        ),
+        throwsA(
+          isA<ApiError>()
+              .having((error) => error.isPunchNotAllowed, 'rejection', isTrue)
+              .having(
+                (error) => error.code,
+                'code',
+                ApiError.punchNotAllowedCode,
+              )
+              .having(
+                (error) => error.responseData?['type'],
+                'rejected type',
+                'check_in',
+              )
+              .having(
+                (error) => error.responseData?['options'],
+                'options',
+                hasLength(2),
+              ),
+        ),
+      );
+    });
+
     test('maps 429 to the throttle message', () async {
       final adapter = _ScriptedAdapter(
         (_) async => _json({'message': 'Too Many Attempts.'}, 429),

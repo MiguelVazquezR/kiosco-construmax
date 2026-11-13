@@ -8,6 +8,8 @@ import '../data/models/api_error.dart';
 import '../data/models/device_identity.dart';
 import '../data/models/gps_fix.dart';
 import '../data/models/kiosk_context.dart';
+import '../data/models/punch_not_allowed.dart';
+import '../data/models/punch_option.dart';
 import '../data/models/punch_result.dart';
 import '../services/camera_service.dart';
 import '../services/device_identity_service.dart';
@@ -68,6 +70,8 @@ class KioskController extends ChangeNotifier {
   String _employeeNumber = '';
   String? _error;
   PunchResult? _lastResult;
+  List<PunchOption> _options = const [];
+  PunchNotAllowed? _punchNotAllowed;
   FaceCamera? _camera;
   bool _cameraReady = false;
   bool _isLocating = false;
@@ -90,6 +94,12 @@ class KioskController extends ChangeNotifier {
   String get employeeNumber => _employeeNumber;
   String? get errorMessage => _error;
   PunchResult? get lastResult => _lastResult;
+
+  /// Daily sequence reported by the server (§3.3 / §3.5).
+  List<PunchOption> get options => _options;
+
+  /// Set while the "already registered" dialog is on screen (§6.3).
+  PunchNotAllowed? get punchNotAllowed => _punchNotAllowed;
   FaceCamera? get camera => _camera;
   bool get cameraReady => _cameraReady;
   bool get isLocating => _isLocating;
@@ -123,6 +133,8 @@ class KioskController extends ChangeNotifier {
     _stopRuntimeTimers();
     _status = KioskStatus.checking;
     _error = null;
+    _punchNotAllowed = null;
+    _options = const [];
     _notify();
 
     try {
@@ -312,8 +324,10 @@ class KioskController extends ChangeNotifier {
     }
 
     final dataUrl = photo;
-    _isSubmitting = false;
-    await _submitWithLocation(
+    // The lock was taken at the top of this method: it is handed straight to
+    // the submit step, so a second tap during the capture cannot send another
+    // punch (§5).
+    await _runPunch(
       (fix) => api.facePunch(
         type: type.key,
         photo: dataUrl,
@@ -328,17 +342,25 @@ class KioskController extends ChangeNotifier {
     _overlayTimer?.cancel();
     _lastResult = null;
     _selectedType = null;
+    _options = const [];
     await _clearIdentification();
     _error = null;
     _notify();
   }
 
+  /// Entry point for the keypad: takes the lock and delegates.
   Future<void> _submitWithLocation(
     Future<PunchResult> Function(GpsFix fix) send,
   ) async {
     if (_isSubmitting) return;
 
     _isSubmitting = true;
+    await _runPunch(send);
+  }
+
+  /// Sends the punch with a GPS fix. The caller must already hold
+  /// `_isSubmitting`, so a double tap can never send two punches.
+  Future<void> _runPunch(Future<PunchResult> Function(GpsFix fix) send) async {
     _isLocating = true;
     _error = null;
     _notify();
@@ -360,22 +382,23 @@ class KioskController extends ChangeNotifier {
 
       final result = await send(fix);
       _isSubmitting = false;
+      _punchNotAllowed = null;
       _lastResult = result;
+      if (result.options.isNotEmpty) _options = result.options;
       _notify();
 
-      _overlayTimer?.cancel();
-      _overlayTimer = Timer(timings.successOverlayDuration, () {
-        _lastResult = null;
-        _selectedType = null;
-        _clearIdentification();
-        _notify();
-      });
+      _startSuccessTimer();
     } on ApiError catch (error) {
       _isSubmitting = false;
       _isLocating = false;
 
       if (error.isUnreachable) {
         await _goUnreachable(error);
+        return;
+      }
+
+      if (error.isPunchNotAllowed) {
+        await _showPunchNotAllowed(PunchNotAllowed.fromApiError(error));
         return;
       }
 
@@ -389,6 +412,49 @@ class KioskController extends ChangeNotifier {
     }
   }
 
+  void _startSuccessTimer() {
+    _overlayTimer?.cancel();
+    _overlayTimer = Timer(timings.successOverlayDuration, () {
+      _lastResult = null;
+      _selectedType = null;
+      _options = const [];
+      _clearIdentification();
+      _notify();
+    });
+  }
+
+  /// The server rejected the movement: show the dialog and go back to step 1.
+  Future<void> _showPunchNotAllowed(PunchNotAllowed rejection) async {
+    _overlayTimer?.cancel();
+    _lastResult = null;
+    _punchNotAllowed = rejection;
+    if (rejection.options.isNotEmpty) _options = rejection.options;
+    _selectedType = null;
+    _error = null;
+    await _clearIdentification();
+    _notify();
+  }
+
+  /// Button "Elegir otro registro" of the rejection dialog.
+  Future<void> dismissPunchNotAllowed() async {
+    _punchNotAllowed = null;
+    _selectedType = null;
+    _error = null;
+    await _clearIdentification();
+    _notify();
+  }
+
+  /// Tapping a disabled punch type: the same dialog the server would return,
+  /// without spending a request.
+  void showBlockedOption(PunchOption option) {
+    if (_isSubmitting) return;
+
+    _punchNotAllowed = PunchNotAllowed.fromOption(option, options: _options);
+    _selectedType = null;
+    _error = null;
+    _notify();
+  }
+
   /// Validation keys mapped to their UI slot, most specific first (§5).
   String _punchErrorMessage(ApiError error) {
     const keys = [
@@ -396,9 +462,11 @@ class KioskController extends ChangeNotifier {
       'face',
       'photo',
       'user',
-      'type',
       'latitude',
       'longitude',
+      // Last resort: only reached when an old backend sends a `422` without
+      // `code`, so the reason still shows up in the banner.
+      'type',
     ];
 
     for (final key in keys) {

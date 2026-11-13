@@ -4,6 +4,8 @@ class ApiError implements Exception {
     required this.statusCode,
     required this.message,
     this.fieldErrors = const {},
+    this.code,
+    this.responseData,
   });
 
   /// HTTP status, or `0` when the request never reached the server
@@ -14,6 +16,20 @@ class ApiError implements Exception {
 
   /// Laravel validation errors: `{"employee_number": ["..."]}`.
   final Map<String, List<String>> fieldErrors;
+
+  /// Machine-readable code sent by the backend, e.g.
+  /// `attendance_punch_not_allowed`.
+  final String? code;
+
+  /// Decoded JSON body, kept so a screen can build a rich dialog out of a
+  /// business error without parsing the raw JSON twice.
+  final Map<String, dynamic>? responseData;
+
+  static const String punchNotAllowedCode = 'attendance_punch_not_allowed';
+
+  /// The daily attendance sequence rejected the movement (§4): show the
+  /// "already registered" dialog instead of a generic error.
+  bool get isPunchNotAllowed => code == punchNotAllowedCode;
 
   bool get isUnreachable => statusCode == 0;
   bool get isThrottled => statusCode == 429;
@@ -47,8 +63,17 @@ class ApiError implements Exception {
 
     final Map<String, List<String>> fieldErrors = {};
     String? message;
+    Map<String, dynamic>? payload;
+    String? code;
 
     if (data is Map) {
+      payload = Map<String, dynamic>.from(data);
+
+      final rawCode = data['code'];
+      if (rawCode is String && rawCode.trim().isNotEmpty) {
+        code = rawCode;
+      }
+
       final rawMessage = data['message'];
       if (rawMessage is String && rawMessage.trim().isNotEmpty) {
         message = rawMessage;
@@ -81,6 +106,8 @@ class ApiError implements Exception {
       statusCode: statusCode,
       message: message ?? _defaultMessage(statusCode),
       fieldErrors: fieldErrors,
+      code: code,
+      responseData: payload,
     );
   }
 

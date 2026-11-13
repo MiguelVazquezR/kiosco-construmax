@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import '../data/models/kiosk_context.dart';
 import '../state/kiosk_controller.dart';
 import 'kiosk_theme.dart';
+import 'widgets/already_registered_overlay.dart';
 import 'widgets/banners.dart';
 import 'widgets/camera_card.dart';
 import 'widgets/clock_header.dart';
 import 'widgets/keypad_card.dart';
 import 'widgets/method_selector.dart';
+import 'widgets/processing_overlay.dart';
 import 'widgets/punch_type_grid.dart';
 import 'widgets/success_overlay.dart';
 import 'widgets/unreachable_view.dart';
@@ -96,6 +98,13 @@ class _KioskScreenState extends State<KioskScreen> with WidgetsBindingObserver {
                       result: _controller.lastResult!,
                       onDismiss: _controller.dismissSuccess,
                     ),
+                  if (_controller.punchNotAllowed != null)
+                    AlreadyRegisteredOverlay(
+                      rejection: _controller.punchNotAllowed!,
+                      onDismiss: _controller.dismissPunchNotAllowed,
+                    ),
+                  // Last, so it sits above the success and rejection dialogs.
+                  if (_controller.isSubmitting) const ProcessingOverlay(),
                 ],
               );
             },
@@ -257,9 +266,11 @@ class _KioskScreenState extends State<KioskScreen> with WidgetsBindingObserver {
             Expanded(
               child: PunchTypeGrid(
                 types: _controller.punchTypes,
+                options: _controller.options,
                 selectedKey: selected?.key,
                 enabled: !_controller.isSubmitting,
                 onSelect: _controller.selectType,
+                onBlocked: _controller.showBlockedOption,
               ),
             ),
           ],
@@ -277,7 +288,6 @@ class _KioskScreenState extends State<KioskScreen> with WidgetsBindingObserver {
       panel = CameraCard(
         preview: _controller.camera?.buildPreview() ?? const SizedBox.shrink(),
         ready: _controller.cameraReady,
-        aspectRatio: _controller.camera?.previewAspectRatio,
         loading: _controller.isSubmitting,
         hint: KioskController.faceHint,
         // The face method is always offered (like the web kiosk); when the

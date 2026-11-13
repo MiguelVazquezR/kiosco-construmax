@@ -26,6 +26,13 @@ class KioskColors {
   static const Color successSoft = Color(0xFFE6F5EF);
   static const Color cameraBackground = Color(0xFF11161C);
   static const Color successScrim = Color(0xE611161C);
+
+  /// Scrim that blocks the kiosk while a request is in flight.
+  static const Color overlayScrim = Color(0xB311161C);
+
+  /// Scrim of the "already registered" dialog (same red as the web kiosk).
+  static const Color dangerScrim = Color(0x99D92D20);
+
   static const Color white = Color(0xFFFFFFFF);
 }
 
